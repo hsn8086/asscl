@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +28,15 @@ void main() async {
     iOS: darwinInit,
   );
   await notificationsPlugin.initialize(initSettings);
+
+  // Request notification permission (Android 13+)
+  if (Platform.isAndroid) {
+    final androidPlugin =
+        notificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.requestNotificationsPermission();
+    await androidPlugin?.requestExactAlarmsPermission();
+  }
 
   runApp(const ProviderScope(child: App()));
 }

@@ -16,7 +16,9 @@ import 'package:uuid/uuid.dart';
 import '../../providers/ai_providers.dart';
 import '../../providers/course_providers.dart';
 import '../../providers/period_config_providers.dart';
+import '../../providers/reminder_providers.dart';
 import '../../providers/semester_providers.dart';
+import '../../providers/task_providers.dart';
 import '../../providers/widget_providers.dart';
 
 const _uuid = Uuid();
@@ -41,6 +43,18 @@ class _UiMessage {
 
   /// For delete_courses: courses to be deleted
   List<Course>? deleteCourses;
+
+  /// For set_current_week: week number to set
+  int? setWeekNumber;
+
+  /// For add_task: task details
+  Map<String, dynamic>? addTaskFields;
+
+  /// For add_reminder: reminder details
+  Map<String, dynamic>? addReminderFields;
+
+  /// For set_period_times: period config details
+  Map<String, dynamic>? setPeriodTimesFields;
 
   _UiMessage({
     String? id,
@@ -535,6 +549,21 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
           await _prepareUpdateCourse(msg, tc, repo);
         case 'delete_courses':
           await _prepareDeleteCourses(msg, tc, repo);
+        case 'set_current_week':
+          await _executeSetCurrentWeek(
+            msg: msg,
+            tc: tc,
+            agent: agent,
+            sessionId: sessionId,
+            dao: dao,
+            repo: repo,
+          );
+        case 'add_task':
+          _prepareAddTask(msg, tc);
+        case 'add_reminder':
+          _prepareAddReminder(msg, tc);
+        case 'set_period_times':
+          _prepareSetPeriodTimes(msg, tc);
       }
     }
     _persistence.notify();
@@ -834,6 +863,295 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       for (final tc in msg.toolCalls!) {
         if (tc.name == 'delete_courses') {
           agent.addToolResult(tc.id, '用户拒绝了删除操作。');
+        }
+      }
+    }
+    setState(() => msg.toolCallStatus = _ToolCallStatus.rejected);
+  }
+
+  // ===== set_current_week — auto-execute =====
+  Future<void> _executeSetCurrentWeek({
+    required _UiMessage msg,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+  }) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final weekNumber = args['weekNumber'] as int;
+
+      final semester = ref.read(activeSemesterProvider);
+      if (semester == null) {
+        agent.addToolResult(tc.id, '当前没有活跃学期，无法设置周次。');
+      } else {
+        final now = DateTime.now();
+        final thisMonday = DateTime(now.year, now.month, now.day)
+            .subtract(Duration(days: now.weekday - 1));
+        final newStartDate =
+            thisMonday.subtract(Duration(days: (weekNumber - 1) * 7));
+
+        final updated = Semester(
+          id: semester.id,
+          name: semester.name,
+          startDate: newStartDate,
+          totalWeeks: semester.totalWeeks,
+          createdAt: semester.createdAt,
+        );
+        await ref.read(semesterRepositoryProvider).save(updated);
+
+        msg.setWeekNumber = weekNumber;
+        agent.addToolResult(tc.id, '已将第$weekNumber周设为本周。');
+      }
+
+      msg.toolCallStatus = _ToolCallStatus.confirmed;
+      _persistence.notify();
+
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    } catch (e) {
+      agent.addToolResult(tc.id, '设置周次失败: $e');
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    }
+  }
+
+  // ===== add_task — pending confirmation =====
+  void _prepareAddTask(_UiMessage msg, ChatToolCall tc) {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      msg.addTaskFields = args;
+      msg.toolCallStatus = _ToolCallStatus.pending;
+    } catch (e) {
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析任务参数失败: $e');
+    }
+  }
+
+  Future<void> _confirmAddTask(_UiMessage msg) async {
+    final fields = msg.addTaskFields;
+    if (fields == null) return;
+
+    final now = DateTime.now();
+    final priority = switch (fields['priority'] as String?) {
+      'low' => Priority.low,
+      'high' => Priority.high,
+      _ => Priority.medium,
+    };
+    DateTime? dueDate;
+    if (fields['dueDate'] != null) {
+      dueDate = DateTime.tryParse(fields['dueDate'] as String);
+    }
+
+    final task = Task(
+      id: _uuid.v4(),
+      title: fields['title'] as String,
+      description: fields['description'] as String?,
+      priority: priority,
+      dueDate: dueDate,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    await ref.read(taskRepositoryProvider).save(task);
+    ref.invalidate(watchTasksProvider);
+
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'add_task') {
+          agent.addToolResult(tc.id, '已成功添加任务「${task.title}」。');
+        }
+      }
+    }
+
+    setState(() => msg.toolCallStatus = _ToolCallStatus.confirmed);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已添加任务「${task.title}」')),
+      );
+    }
+
+    if (agent != null) {
+      final dao = ref.read(chatSessionDaoProvider);
+      final repoRef = ref.read(courseRepositoryProvider);
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: _currentSessionId ?? await _ensureSession(),
+        dao: dao,
+        repo: repoRef,
+      );
+    }
+  }
+
+  void _rejectAddTask(_UiMessage msg) {
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'add_task') {
+          agent.addToolResult(tc.id, '用户拒绝了添加任务。');
+        }
+      }
+    }
+    setState(() => msg.toolCallStatus = _ToolCallStatus.rejected);
+  }
+
+  // ===== add_reminder — pending confirmation =====
+  void _prepareAddReminder(_UiMessage msg, ChatToolCall tc) {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      msg.addReminderFields = args;
+      msg.toolCallStatus = _ToolCallStatus.pending;
+    } catch (e) {
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析提醒参数失败: $e');
+    }
+  }
+
+  Future<void> _confirmAddReminder(_UiMessage msg) async {
+    final fields = msg.addReminderFields;
+    if (fields == null) return;
+
+    final scheduledAt = DateTime.parse(fields['scheduledAt'] as String);
+    final now = DateTime.now();
+
+    final reminder = Reminder(
+      id: _uuid.v4(),
+      title: fields['title'] as String,
+      body: fields['body'] as String?,
+      scheduledAt: scheduledAt,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    await ref.read(reminderRepositoryProvider).save(reminder);
+    ref.invalidate(watchRemindersProvider);
+
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'add_reminder') {
+          agent.addToolResult(tc.id, '已成功添加提醒「${reminder.title}」，将在 ${scheduledAt.month}/${scheduledAt.day} ${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')} 提醒。');
+        }
+      }
+    }
+
+    setState(() => msg.toolCallStatus = _ToolCallStatus.confirmed);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已添加提醒「${reminder.title}」')),
+      );
+    }
+
+    if (agent != null) {
+      final dao = ref.read(chatSessionDaoProvider);
+      final repoRef = ref.read(courseRepositoryProvider);
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: _currentSessionId ?? await _ensureSession(),
+        dao: dao,
+        repo: repoRef,
+      );
+    }
+  }
+
+  void _rejectAddReminder(_UiMessage msg) {
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'add_reminder') {
+          agent.addToolResult(tc.id, '用户拒绝了添加提醒。');
+        }
+      }
+    }
+    setState(() => msg.toolCallStatus = _ToolCallStatus.rejected);
+  }
+
+  // ===== set_period_times — pending confirmation =====
+  void _prepareSetPeriodTimes(_UiMessage msg, ChatToolCall tc) {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      msg.setPeriodTimesFields = args;
+      msg.toolCallStatus = _ToolCallStatus.pending;
+    } catch (e) {
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析节次时间参数失败: $e');
+    }
+  }
+
+  Future<void> _confirmSetPeriodTimes(_UiMessage msg) async {
+    final fields = msg.setPeriodTimesFields;
+    if (fields == null) return;
+
+    final periodsRaw = fields['periods'] as List<dynamic>;
+    final totalPeriods = (fields['totalPeriods'] as int?) ?? periodsRaw.length;
+
+    final periods = periodsRaw.map((p) {
+      final m = p as Map<String, dynamic>;
+      return PeriodTime(
+        periodNumber: m['periodNumber'] as int,
+        startHour: m['startHour'] as int,
+        startMinute: m['startMinute'] as int,
+        endHour: m['endHour'] as int,
+        endMinute: m['endMinute'] as int,
+      );
+    }).toList();
+
+    final config = PeriodConfig(
+      totalPeriods: totalPeriods,
+      periods: periods,
+    );
+
+    await ref.read(periodConfigRepositoryProvider).saveConfig(config);
+    ref.invalidate(periodConfigProvider);
+
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'set_period_times') {
+          agent.addToolResult(
+              tc.id, '已成功设置 ${periods.length} 个节次的时间。');
+        }
+      }
+    }
+
+    setState(() => msg.toolCallStatus = _ToolCallStatus.confirmed);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已设置 ${periods.length} 个节次时间')),
+      );
+    }
+
+    if (agent != null) {
+      final dao = ref.read(chatSessionDaoProvider);
+      final repoRef = ref.read(courseRepositoryProvider);
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: _currentSessionId ?? await _ensureSession(),
+        dao: dao,
+        repo: repoRef,
+      );
+    }
+  }
+
+  void _rejectSetPeriodTimes(_UiMessage msg) {
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'set_period_times') {
+          agent.addToolResult(tc.id, '用户拒绝了设置节次时间。');
         }
       }
     }
@@ -1355,6 +1673,12 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
               _buildUpdateConfirmCard(msg, theme),
             if (msg.deleteCourses != null && msg.deleteCourses!.isNotEmpty)
               _buildDeleteConfirmCard(msg, theme),
+            if (msg.addTaskFields != null)
+              _buildAddTaskConfirmCard(msg, theme),
+            if (msg.addReminderFields != null)
+              _buildAddReminderConfirmCard(msg, theme),
+            if (msg.setPeriodTimesFields != null)
+              _buildSetPeriodTimesConfirmCard(msg, theme),
           ],
         ),
       ),
@@ -1374,6 +1698,10 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       'query_courses' => '查询课程',
       'update_course' => '修改课程',
       'delete_courses' => '删除课程',
+      'set_current_week' => '设置本周',
+      'add_task' => '添加任务',
+      'add_reminder' => '添加提醒',
+      'set_period_times' => '设置节次时间',
       _ => tc.name,
     };
 
@@ -1633,6 +1961,239 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
                       onPressed: () => _rejectDelete(msg),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddTaskConfirmCard(_UiMessage msg, ThemeData theme) {
+    final status = msg.toolCallStatus;
+    final fields = msg.addTaskFields!;
+    final title = fields['title'] as String? ?? '';
+    final description = fields['description'] as String?;
+    final priority = fields['priority'] as String?;
+    final dueDate = fields['dueDate'] as String?;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : Icons.task_alt,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : status == _ToolCallStatus.rejected
+                            ? theme.colorScheme.error
+                            : null,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '已添加任务'
+                        : status == _ToolCallStatus.rejected
+                            ? '已拒绝添加任务'
+                            : '添加任务',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text('标题: $title', style: theme.textTheme.bodySmall),
+              if (description != null)
+                Text('描述: $description', style: theme.textTheme.bodySmall),
+              if (priority != null)
+                Text(
+                    '优先级: ${switch (priority) { 'high' => '高', 'low' => '低', _ => '中' }}',
+                    style: theme.textTheme.bodySmall),
+              if (dueDate != null)
+                Text('截止: $dueDate', style: theme.textTheme.bodySmall),
+              if (status == null || status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _confirmAddTask(msg),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('确认添加'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _rejectAddTask(msg),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddReminderConfirmCard(_UiMessage msg, ThemeData theme) {
+    final status = msg.toolCallStatus;
+    final fields = msg.addReminderFields!;
+    final title = fields['title'] as String? ?? '';
+    final body = fields['body'] as String?;
+    final scheduledAt = fields['scheduledAt'] as String? ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : Icons.notifications_active,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : status == _ToolCallStatus.rejected
+                            ? theme.colorScheme.error
+                            : null,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '已添加提醒'
+                        : status == _ToolCallStatus.rejected
+                            ? '已拒绝添加提醒'
+                            : '添加提醒',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text('标题: $title', style: theme.textTheme.bodySmall),
+              if (body != null)
+                Text('内容: $body', style: theme.textTheme.bodySmall),
+              Text('提醒时间: $scheduledAt', style: theme.textTheme.bodySmall),
+              if (status == null || status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _confirmAddReminder(msg),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('确认添加'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _rejectAddReminder(msg),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSetPeriodTimesConfirmCard(_UiMessage msg, ThemeData theme) {
+    final status = msg.toolCallStatus;
+    final fields = msg.setPeriodTimesFields!;
+    final periodsRaw = fields['periods'] as List<dynamic>;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : Icons.schedule,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : status == _ToolCallStatus.rejected
+                            ? theme.colorScheme.error
+                            : null,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '已设置 ${periodsRaw.length} 个节次时间'
+                        : status == _ToolCallStatus.rejected
+                            ? '已拒绝设置节次时间'
+                            : '设置 ${periodsRaw.length} 个节次时间',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ...periodsRaw.take(6).map((p) {
+                final m = p as Map<String, dynamic>;
+                final n = m['periodNumber'];
+                final sh = (m['startHour'] as int).toString().padLeft(2, '0');
+                final sm =
+                    (m['startMinute'] as int).toString().padLeft(2, '0');
+                final eh = (m['endHour'] as int).toString().padLeft(2, '0');
+                final em = (m['endMinute'] as int).toString().padLeft(2, '0');
+                return Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 2),
+                  child: Text('第$n节: $sh:$sm - $eh:$em',
+                      style: theme.textTheme.bodySmall),
+                );
+              }),
+              if (periodsRaw.length > 6)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text('...还有 ${periodsRaw.length - 6} 个节次',
+                      style: theme.textTheme.bodySmall),
+                ),
+              if (status == null || status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _confirmSetPeriodTimes(msg),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('确认设置'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _rejectSetPeriodTimes(msg),
                       icon: const Icon(Icons.close, size: 16),
                       label: const Text('拒绝'),
                     ),

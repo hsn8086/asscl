@@ -17,15 +17,22 @@ class AiAgentServiceImpl implements AiAgentService {
 你是一个课程表管理助手 (AI Agent)。你可以帮助用户：
 1. 从文本或图片中识别并导入课程表信息
 2. 查询、修改、删除课程
-3. 回答关于课程安排的问题
+3. 设置当前周次（设置第几周为本周）
+4. 添加任务和提醒
+5. 设置节次时间（每节课的上下课时间）
+6. 回答关于课程安排的问题
 
 当用户发送课程表信息（文本或图片）时，使用 import_courses 工具来导入。
 当用户要查询课程时，使用 query_courses 工具获取数据后回答。
 当用户要修改课程时，先用 query_courses 查到课程ID，再用 update_course 修改。
 当用户要删除课程时，先用 query_courses 查到课程ID，再用 delete_courses 删除。
+当用户要设置当前周次时，使用 set_current_week 工具。
+当用户要添加任务时，使用 add_task 工具。
+当用户要添加提醒时，使用 add_reminder 工具。
+当用户要设置节次时间时，使用 set_period_times 工具。
 不要直接输出 JSON，而是调用工具。
 
-如果用户只是聊天或提问且不涉及课表操作，正常回复即可。
+如果用户只是聊天或提问且不涉及上述操作，正常回复即可。
 用中文回复。
 ''';
 
@@ -140,6 +147,131 @@ class AiAgentServiceImpl implements AiAgentService {
               'type': 'array',
               'items': {'type': 'string'},
               'description': '要删除的课程ID列表',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'set_current_week',
+        'description': '设置当前是第几周。会自动调整学期开始日期使得指定周变为本周。',
+        'parameters': {
+          'type': 'object',
+          'required': ['weekNumber'],
+          'properties': {
+            'weekNumber': {
+              'type': 'integer',
+              'description': '要设置为本周的周次，例如 5 表示设置为第5周',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'add_task',
+        'description': '添加一个新任务/待办事项。',
+        'parameters': {
+          'type': 'object',
+          'required': ['title'],
+          'properties': {
+            'title': {
+              'type': 'string',
+              'description': '任务标题',
+            },
+            'description': {
+              'type': 'string',
+              'description': '任务详细描述',
+            },
+            'priority': {
+              'type': 'string',
+              'enum': ['low', 'medium', 'high'],
+              'description': '优先级: low=低, medium=中, high=高',
+            },
+            'dueDate': {
+              'type': 'string',
+              'description': '截止日期，ISO 8601 格式，如 2026-03-15T23:59:00',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'add_reminder',
+        'description': '添加一个提醒/闹钟。会在指定时间发送通知。',
+        'parameters': {
+          'type': 'object',
+          'required': ['title', 'scheduledAt'],
+          'properties': {
+            'title': {
+              'type': 'string',
+              'description': '提醒标题',
+            },
+            'body': {
+              'type': 'string',
+              'description': '提醒内容/描述',
+            },
+            'scheduledAt': {
+              'type': 'string',
+              'description': '提醒时间，ISO 8601 格式，如 2026-03-15T08:00:00',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'set_period_times',
+        'description': '设置节次时间表。定义每节课的上课和下课时间。',
+        'parameters': {
+          'type': 'object',
+          'required': ['periods'],
+          'properties': {
+            'totalPeriods': {
+              'type': 'integer',
+              'description': '总节次数，默认12',
+            },
+            'periods': {
+              'type': 'array',
+              'description': '每节课的时间列表',
+              'items': {
+                'type': 'object',
+                'required': [
+                  'periodNumber',
+                  'startHour',
+                  'startMinute',
+                  'endHour',
+                  'endMinute'
+                ],
+                'properties': {
+                  'periodNumber': {
+                    'type': 'integer',
+                    'description': '节次编号，从1开始',
+                  },
+                  'startHour': {
+                    'type': 'integer',
+                    'description': '上课小时 (0-23)',
+                  },
+                  'startMinute': {
+                    'type': 'integer',
+                    'description': '上课分钟 (0-59)',
+                  },
+                  'endHour': {
+                    'type': 'integer',
+                    'description': '下课小时 (0-23)',
+                  },
+                  'endMinute': {
+                    'type': 'integer',
+                    'description': '下课分钟 (0-59)',
+                  },
+                },
+              },
             },
           },
         },
