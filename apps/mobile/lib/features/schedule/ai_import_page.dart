@@ -16,6 +16,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../providers/ai_providers.dart';
 import '../../providers/course_providers.dart';
+import '../../providers/database_provider.dart';
 import '../../providers/period_config_providers.dart';
 import '../../providers/reminder_providers.dart';
 import '../../providers/semester_providers.dart';
@@ -574,6 +575,42 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
           _prepareAddReminder(msg, tc);
         case 'set_period_times':
           _prepareSetPeriodTimes(msg, tc);
+        case 'query_semesters':
+          await _executeQuerySemesters(
+            msg: msg,
+            tc: tc,
+            agent: agent,
+            sessionId: sessionId,
+            dao: dao,
+            repo: repo,
+          );
+        case 'create_semester':
+          await _executeCreateSemester(
+            msg: msg,
+            tc: tc,
+            agent: agent,
+            sessionId: sessionId,
+            dao: dao,
+            repo: repo,
+          );
+        case 'update_semester':
+          await _executeUpdateSemester(
+            msg: msg,
+            tc: tc,
+            agent: agent,
+            sessionId: sessionId,
+            dao: dao,
+            repo: repo,
+          );
+        case 'delete_semester':
+          await _executeDeleteSemester(
+            msg: msg,
+            tc: tc,
+            agent: agent,
+            sessionId: sessionId,
+            dao: dao,
+            repo: repo,
+          );
       }
     }
     _persistence.notify();
@@ -926,6 +963,238 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       );
     } catch (e) {
       agent.addToolResult(tc.id, '设置周次失败: $e');
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    }
+  }
+
+  // ===== Semester tools — auto-execute =====
+
+  Future<void> _executeQuerySemesters({
+    required _UiMessage msg,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+  }) async {
+    try {
+      final semesters =
+          await ref.read(semesterRepositoryProvider).watchAll().first;
+      final activeId = ref.read(activeSemesterIdProvider).valueOrNull;
+
+      final resultJson = jsonEncode(semesters
+          .map((s) => {
+                'id': s.id,
+                'name': s.name,
+                'startDate': s.startDate.toIso8601String().split('T').first,
+                'totalWeeks': s.totalWeeks,
+                'currentWeek': s.currentWeek(),
+                'isActive': s.id == activeId,
+              })
+          .toList());
+
+      agent.addToolResult(
+          tc.id, '查询到 ${semesters.length} 个学期：$resultJson');
+      msg.toolCallStatus = _ToolCallStatus.confirmed;
+      _persistence.notify();
+
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    } catch (e) {
+      agent.addToolResult(tc.id, '查询学期失败: $e');
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    }
+  }
+
+  Future<void> _executeCreateSemester({
+    required _UiMessage msg,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+  }) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final name = args['name'] as String;
+      final startDateStr = args['startDate'] as String;
+      final totalWeeks = (args['totalWeeks'] as int?) ?? 20;
+      final setActive = (args['setActive'] as bool?) ?? true;
+
+      final startDate = DateTime.parse(startDateStr);
+      final id = _uuid.v4();
+
+      final semester = Semester(
+        id: id,
+        name: name,
+        startDate: startDate,
+        totalWeeks: totalWeeks,
+        createdAt: DateTime.now(),
+      );
+
+      await ref.read(semesterRepositoryProvider).save(semester);
+
+      if (setActive) {
+        final db = ref.read(appDatabaseProvider);
+        await SettingsDao(db).setValue('activeSemesterId', id);
+        ref.invalidate(activeSemesterIdProvider);
+      }
+
+      ref.invalidate(semestersProvider);
+
+      agent.addToolResult(
+          tc.id, '已创建学期「$name」${setActive ? '并设为活跃学期' : ''}。');
+      msg.toolCallStatus = _ToolCallStatus.confirmed;
+      _persistence.notify();
+
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    } catch (e) {
+      agent.addToolResult(tc.id, '创建学期失败: $e');
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    }
+  }
+
+  Future<void> _executeUpdateSemester({
+    required _UiMessage msg,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+  }) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final semesterId = args['semesterId'] as String;
+
+      final existing =
+          await ref.read(semesterRepositoryProvider).findById(semesterId);
+      if (existing == null) {
+        agent.addToolResult(tc.id, '未找到 ID 为 $semesterId 的学期');
+        msg.toolCallStatus = _ToolCallStatus.confirmed;
+        _persistence.notify();
+        _continueAfterToolResult(
+          agent: agent,
+          sessionId: sessionId,
+          dao: dao,
+          repo: repo,
+        );
+        return;
+      }
+
+      final updated = Semester(
+        id: existing.id,
+        name: (args['name'] as String?) ?? existing.name,
+        startDate: args['startDate'] != null
+            ? DateTime.parse(args['startDate'] as String)
+            : existing.startDate,
+        totalWeeks: (args['totalWeeks'] as int?) ?? existing.totalWeeks,
+        createdAt: existing.createdAt,
+      );
+
+      await ref.read(semesterRepositoryProvider).save(updated);
+      ref.invalidate(semestersProvider);
+
+      agent.addToolResult(tc.id, '已修改学期「${updated.name}」。');
+      msg.toolCallStatus = _ToolCallStatus.confirmed;
+      _persistence.notify();
+
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    } catch (e) {
+      agent.addToolResult(tc.id, '修改学期失败: $e');
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    }
+  }
+
+  Future<void> _executeDeleteSemester({
+    required _UiMessage msg,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+  }) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final semesterId = args['semesterId'] as String;
+
+      final existing =
+          await ref.read(semesterRepositoryProvider).findById(semesterId);
+      if (existing == null) {
+        agent.addToolResult(tc.id, '未找到 ID 为 $semesterId 的学期');
+        msg.toolCallStatus = _ToolCallStatus.confirmed;
+        _persistence.notify();
+        _continueAfterToolResult(
+          agent: agent,
+          sessionId: sessionId,
+          dao: dao,
+          repo: repo,
+        );
+        return;
+      }
+
+      await ref.read(semesterRepositoryProvider).delete(semesterId);
+
+      // If deleted semester was active, switch to another
+      final activeId = ref.read(activeSemesterIdProvider).valueOrNull;
+      if (activeId == semesterId) {
+        final remaining =
+            await ref.read(semesterRepositoryProvider).watchAll().first;
+        if (remaining.isNotEmpty) {
+          final db = ref.read(appDatabaseProvider);
+          await SettingsDao(db)
+              .setValue('activeSemesterId', remaining.first.id);
+        }
+        ref.invalidate(activeSemesterIdProvider);
+      }
+
+      ref.invalidate(semestersProvider);
+
+      agent.addToolResult(tc.id, '已删除学期「${existing.name}」。');
+      msg.toolCallStatus = _ToolCallStatus.confirmed;
+      _persistence.notify();
+
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    } catch (e) {
+      agent.addToolResult(tc.id, '删除学期失败: $e');
       _continueAfterToolResult(
         agent: agent,
         sessionId: sessionId,
@@ -1717,6 +1986,10 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       'add_task' => '添加任务',
       'add_reminder' => '添加提醒',
       'set_period_times' => '设置节次时间',
+      'query_semesters' => '查询学期',
+      'create_semester' => '创建学期',
+      'update_semester' => '修改学期',
+      'delete_semester' => '删除学期',
       _ => tc.name,
     };
 

@@ -20,7 +20,8 @@ class AiAgentServiceImpl implements AiAgentService {
 3. 设置当前周次（设置第几周为本周）
 4. 添加任务和提醒
 5. 设置节次时间（每节课的上下课时间）
-6. 回答关于课程安排的问题
+6. 管理学期（查询、创建、修改、删除学期）
+7. 回答关于课程安排的问题
 
 当用户发送课程表信息（文本或图片）时，使用 import_courses 工具来导入。
 当用户要查询课程时，使用 query_courses 工具获取数据后回答。
@@ -30,6 +31,10 @@ class AiAgentServiceImpl implements AiAgentService {
 当用户要添加任务时，使用 add_task 工具。
 当用户要添加提醒时，使用 add_reminder 工具。
 当用户要设置节次时间时，使用 set_period_times 工具。
+当用户要查询学期时，使用 query_semesters 工具。
+当用户要创建学期时，使用 create_semester 工具。
+当用户要修改学期时，先用 query_semesters 查到学期ID，再用 update_semester 修改。
+当用户要删除学期时，先用 query_semesters 查到学期ID，再用 delete_semester 删除。
 不要直接输出 JSON，而是调用工具。
 
 如果用户只是聊天或提问且不涉及上述操作，正常回复即可。
@@ -272,6 +277,92 @@ class AiAgentServiceImpl implements AiAgentService {
                   },
                 },
               },
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'query_semesters',
+        'description': '查询所有学期信息，包括学期名称、开始日期、总周数和当前周次。',
+        'parameters': {
+          'type': 'object',
+          'properties': {},
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'create_semester',
+        'description': '创建一个新学期。',
+        'parameters': {
+          'type': 'object',
+          'required': ['name', 'startDate'],
+          'properties': {
+            'name': {
+              'type': 'string',
+              'description': '学期名称，如"2025-2026 秋季学期"',
+            },
+            'startDate': {
+              'type': 'string',
+              'description': '学期第一周周一的日期，ISO 8601 格式，如 2025-09-01',
+            },
+            'totalWeeks': {
+              'type': 'integer',
+              'description': '学期总周数，默认20',
+            },
+            'setActive': {
+              'type': 'boolean',
+              'description': '是否设为当前活跃学期，默认true',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'update_semester',
+        'description': '修改一个已有学期的信息。需要提供学期ID和要修改的字段。',
+        'parameters': {
+          'type': 'object',
+          'required': ['semesterId'],
+          'properties': {
+            'semesterId': {
+              'type': 'string',
+              'description': '要修改的学期ID',
+            },
+            'name': {
+              'type': 'string',
+              'description': '学期名称',
+            },
+            'startDate': {
+              'type': 'string',
+              'description': '学期开始日期，ISO 8601 格式',
+            },
+            'totalWeeks': {
+              'type': 'integer',
+              'description': '学期总周数',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'delete_semester',
+        'description': '删除指定学期。注意：该学期下的所有课程也会失去归属。',
+        'parameters': {
+          'type': 'object',
+          'required': ['semesterId'],
+          'properties': {
+            'semesterId': {
+              'type': 'string',
+              'description': '要删除的学期ID',
             },
           },
         },

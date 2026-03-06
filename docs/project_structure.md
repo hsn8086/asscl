@@ -134,7 +134,7 @@ asscl/
 
 ### AI Agent 工具
 
-AiAgentService 支持 8 个工具调用：
+AiAgentService 支持 12 个工具调用：
 
 | 工具 | 说明 |
 |------|------|
@@ -146,6 +146,10 @@ AiAgentService 支持 8 个工具调用：
 | `add_task` | 添加任务 |
 | `add_reminder` | 添加提醒 |
 | `set_period_times` | 设置节次时间 |
+| `query_semesters` | 查询所有学期 |
+| `create_semester` | 创建学期 |
+| `update_semester` | 修改学期 |
+| `delete_semester` | 删除学期 |
 
 ### 架构原则
 
