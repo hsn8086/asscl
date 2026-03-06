@@ -53,11 +53,6 @@ final routerProvider = GoRouter(
                 builder: (_, __) => const CourseFormPage(),
               ),
               GoRoute(
-                path: 'course/ai-import',
-                parentNavigatorKey: _rootNavigatorKey,
-                builder: (_, __) => const AiImportPage(),
-              ),
-              GoRoute(
                 path: 'course/:id',
                 parentNavigatorKey: _rootNavigatorKey,
                 builder: (_, state) => CourseDetailPage(
@@ -74,6 +69,12 @@ final routerProvider = GoRouter(
                 ],
               ),
             ],
+          ),
+        ]),
+        StatefulShellBranch(routes: [
+          GoRoute(
+            path: '/agent',
+            builder: (_, __) => const AiImportPage(),
           ),
         ]),
         StatefulShellBranch(routes: [

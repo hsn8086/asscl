@@ -152,21 +152,9 @@ class SchedulePage extends ConsumerWidget {
             ? const WeekGridView()
             : const TimeStreamView(),
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'ai_import',
-            onPressed: () => context.push('/schedule/course/ai-import'),
-            child: const Icon(Icons.auto_awesome),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton(
-            heroTag: 'manual_add',
-            onPressed: () => context.push('/schedule/course/new'),
-            child: const Icon(Icons.add),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/schedule/course/new'),
+        child: const Icon(Icons.add),
       ),
     );
   }
