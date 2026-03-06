@@ -1,8 +1,10 @@
 import 'package:data/data.dart';
 import 'package:domain/domain.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import 'database_provider.dart';
+import 'proxy_providers.dart';
 
 final aiConfigProvider = FutureProvider<AiImportConfig?>((ref) async {
   final db = ref.watch(appDatabaseProvider);
@@ -17,25 +19,30 @@ final aiConfigProvider = FutureProvider<AiImportConfig?>((ref) async {
 final aiImportServiceProvider = Provider<AiImportService?>((ref) {
   final config = ref.watch(aiConfigProvider).valueOrNull;
   if (config == null) return null;
-  return AiImportServiceImpl(config: config);
+  final client = ref.watch(httpClientProvider);
+  return AiImportServiceImpl(config: config, client: client);
 });
 
 /// Provides an AiAgentService that persists across navigation.
 /// Cached: only recreates if the config values actually change.
 AiAgentService? _cachedAgent;
 AiImportConfig? _lastAgentConfig;
+http.Client? _lastAgentClient;
 
 final aiAgentServiceProvider = Provider<AiAgentService?>((ref) {
   final config = ref.watch(aiConfigProvider).valueOrNull;
+  final client = ref.watch(httpClientProvider);
   if (config == null) {
-    // Config still loading — return cached agent if available
     return _cachedAgent;
   }
-  if (_cachedAgent != null && _lastAgentConfig == config) {
+  if (_cachedAgent != null &&
+      _lastAgentConfig == config &&
+      _lastAgentClient == client) {
     return _cachedAgent;
   }
   _lastAgentConfig = config;
-  _cachedAgent = AiAgentServiceImpl(config: config);
+  _lastAgentClient = client;
+  _cachedAgent = AiAgentServiceImpl(config: config, client: client);
   return _cachedAgent;
 });
 

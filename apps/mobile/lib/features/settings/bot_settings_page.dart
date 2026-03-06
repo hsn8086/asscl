@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/bot_providers.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/proxy_providers.dart';
 
 class BotSettingsPage extends ConsumerStatefulWidget {
   const BotSettingsPage({super.key});
@@ -95,7 +96,8 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
       _testResult = null;
     });
 
-    final service = TelegramBotService(token: token);
+    final client = ref.read(httpClientProvider);
+    final service = TelegramBotService(token: token, client: client);
     final status = await service.testConnection();
 
     if (mounted) {

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../services/bot_agent_relay.dart';
 import 'database_provider.dart';
+import 'proxy_providers.dart';
 
 /// Telegram bot configuration read from SettingsDao.
 class TgBotConfig {
@@ -54,7 +55,8 @@ final tgConfigProvider = FutureProvider<TgBotConfig?>((ref) async {
 final telegramBotServiceProvider = Provider<TelegramBotService?>((ref) {
   final config = ref.watch(tgConfigProvider).valueOrNull;
   if (config == null || !config.isValid) return null;
-  return TelegramBotService(token: config.token);
+  final client = ref.watch(httpClientProvider);
+  return TelegramBotService(token: config.token, client: client);
 });
 
 /// Forward a reminder to Telegram if notification forwarding is enabled.

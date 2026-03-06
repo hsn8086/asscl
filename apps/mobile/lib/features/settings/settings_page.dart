@@ -143,6 +143,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
 
+          // ── 网络 ──
+          _SectionHeader('网络'),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                _NavTile(
+                  icon: Icons.vpn_lock,
+                  title: '代理设置',
+                  subtitle: 'HTTP 代理，用于 AI 和 Bot 请求',
+                  onTap: () => context.push('/settings/proxy'),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 32),
         ],
       ),

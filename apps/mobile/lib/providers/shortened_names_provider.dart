@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:data/data.dart';
 import 'package:domain/domain.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 
 import 'ai_providers.dart';
 import 'course_providers.dart';
 import 'database_provider.dart';
+import 'proxy_providers.dart';
 
 const _cacheKey = 'shortenedCourseNames';
 
@@ -111,9 +111,8 @@ class ShortenedCourseNamesNotifier
     if (uniqueNames.every((n) => n.length <= 4)) return {};
 
     try {
-      final client = http.Client();
-      try {
-        final nameList = uniqueNames
+      final client = ref.read(httpClientProvider);
+      final nameList = uniqueNames
             .asMap()
             .entries
             .map((e) => '${e.key}. ${e.value}')
@@ -169,9 +168,6 @@ class ShortenedCourseNamesNotifier
           }
         }
         return result;
-      } finally {
-        client.close();
-      }
     } catch (_) {
       return {};
     }

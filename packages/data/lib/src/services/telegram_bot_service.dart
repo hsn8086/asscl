@@ -10,13 +10,15 @@ import 'package:http/http.dart' as http;
 class TelegramBotService implements BotPlatformService {
   final String token;
   final String _baseUrl;
+  final http.Client? _externalClient;
 
   int _updateOffset = 0;
   bool _polling = false;
   http.Client? _pollClient;
 
-  TelegramBotService({required this.token})
-      : _baseUrl = 'https://api.telegram.org/bot$token';
+  TelegramBotService({required this.token, http.Client? client})
+      : _baseUrl = 'https://api.telegram.org/bot$token',
+        _externalClient = client;
 
   // ------------------------------------------------------------------
   // BotPlatformService
@@ -25,7 +27,7 @@ class TelegramBotService implements BotPlatformService {
   @override
   Future<BotConnectionStatus> testConnection() async {
     try {
-      final resp = await http.get(Uri.parse('$_baseUrl/getMe'));
+      final resp = await _get('getMe');
       if (resp.statusCode != 200) {
         return BotConnectionStatus.failure('HTTP ${resp.statusCode}');
       }
@@ -85,7 +87,7 @@ class TelegramBotService implements BotPlatformService {
   @override
   Stream<BotIncomingMessage> pollMessages() async* {
     _polling = true;
-    _pollClient = http.Client();
+    _pollClient = _externalClient ?? http.Client();
 
     while (_polling) {
       try {
@@ -167,11 +169,17 @@ class TelegramBotService implements BotPlatformService {
     }
   }
 
+  http.Client get _client => _externalClient ?? http.Client();
+
+  Future<http.Response> _get(String method) async {
+    return _client.get(Uri.parse('$_baseUrl/$method'));
+  }
+
   Future<http.Response> _post(
     String method,
     Map<String, dynamic> body,
   ) async {
-    return http.post(
+    return _client.post(
       Uri.parse('$_baseUrl/$method'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(body),
