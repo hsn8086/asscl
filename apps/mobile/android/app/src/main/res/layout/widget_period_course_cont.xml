@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Continuation cell for multi-period courses: no margin, no text, just colored background -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/period_course_cont_root"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1" />

@@ -146,20 +146,15 @@ class TodayScheduleWidgetProvider : AppWidgetProvider() {
                                 )
                                 views.addView(containerId, startCell)
 
-                                // Body cells: just colored background, no text
+                                // Continuation cells: seamless colored background (no margin gap)
                                 for (p in (start + 1)..end) {
-                                    val bodyCell = RemoteViews(pkg, R.layout.widget_period_course)
-                                    bodyCell.setViewVisibility(R.id.period_course_name, View.GONE)
-                                    bodyCell.setViewVisibility(
-                                        R.id.period_course_location,
-                                        View.GONE
-                                    )
-                                    bodyCell.setInt(
-                                        R.id.period_course_root,
+                                    val contCell = RemoteViews(pkg, R.layout.widget_period_course_cont)
+                                    contCell.setInt(
+                                        R.id.period_course_cont_root,
                                         "setBackgroundColor",
                                         bgColor
                                     )
-                                    views.addView(containerId, bodyCell)
+                                    views.addView(containerId, contCell)
                                 }
 
                                 currentPeriod = end + 1
