@@ -98,9 +98,16 @@ class ShortenedCourseNamesNotifier
     AiImportConfig config,
     List<Course> courses,
   ) async {
-    // Deduplicate by trimmed name so identical courses only get translated once
-    final uniqueNames =
-        courses.map((c) => c.name.trim()).toSet().toList();
+    // Deduplicate by trimmed + lowercased name so "Python程序设计" and
+    // "PYTHON程序设计" are only sent to AI once.
+    final seen = <String, String>{}; // lowercased → original display form
+    for (final c in courses) {
+      final trimmed = c.name.trim();
+      final key = trimmed.toLowerCase();
+      // Keep the first occurrence as the canonical display form
+      seen.putIfAbsent(key, () => trimmed);
+    }
+    final uniqueNames = seen.values.toList();
     if (uniqueNames.every((n) => n.length <= 4)) return {};
 
     try {
@@ -144,19 +151,20 @@ class ShortenedCourseNamesNotifier
         if (jsonStr == null) return {};
 
         final mapping = jsonDecode(jsonStr) as Map<String, dynamic>;
-        // Build a trimmed-name → shortName lookup for O(1) reuse
+        // Build a case-insensitive lookup: lowercased key → shortName
         final nameLookup = <String, String>{};
         for (final entry in mapping.entries) {
           final short = entry.value as String?;
           if (short != null) {
-            nameLookup[entry.key.trim()] = short;
+            nameLookup[entry.key.trim().toLowerCase()] = short;
           }
         }
 
         final result = <String, String>{};
         for (final course in courses) {
-          final shortName = nameLookup[course.name.trim()];
-          if (shortName != null && shortName != course.name.trim()) {
+          final key = course.name.trim().toLowerCase();
+          final shortName = nameLookup[key];
+          if (shortName != null && shortName.toLowerCase() != key) {
             result[course.id] = shortName;
           }
         }

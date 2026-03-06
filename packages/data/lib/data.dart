@@ -31,3 +31,4 @@ export 'src/repositories/semester_repository_impl.dart';
 export 'src/services/notification_service_impl.dart';
 export 'src/services/ai_import_service_impl.dart';
 export 'src/services/ai_agent_service_impl.dart';
+export 'src/services/telegram_bot_service.dart';

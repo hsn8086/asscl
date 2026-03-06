@@ -31,6 +31,7 @@ export 'src/repositories/semester_repository.dart';
 export 'src/services/notification_service.dart';
 export 'src/services/ai_import_service.dart';
 export 'src/services/ai_agent_service.dart';
+export 'src/services/bot_platform_service.dart';
 
 // Use cases - Course
 export 'src/usecases/course/save_course_use_case.dart';

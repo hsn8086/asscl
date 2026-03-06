@@ -36,7 +36,7 @@ class CourseDetailPage extends ConsumerWidget {
               );
               if (confirmed && context.mounted) {
                 await ref.read(courseRepositoryProvider).delete(courseId);
-                ref.read(widgetServiceProvider).updateWidgets();
+                refreshWidgets(ref);
                 if (context.mounted) context.go('/schedule');
               }
             },

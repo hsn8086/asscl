@@ -10,16 +10,20 @@ class WidgetService {
   WidgetService(this._courseRepo, this._periodConfigRepo);
 
   /// Update all home screen widgets with current course data.
-  Future<void> updateWidgets({String semesterName = ''}) async {
-    final allCourses = await _courseRepo.watchAll().first;
+  Future<void> updateWidgets({
+    String semesterName = '',
+    String? semesterId,
+    int currentWeek = 1,
+  }) async {
+    var allCourses = await _courseRepo.watchAll().first;
+    if (semesterId != null) {
+      allCourses =
+          allCourses.where((c) => c.semesterId == semesterId).toList();
+    }
     final periodConfig = await _periodConfigRepo.getConfig();
 
     final now = DateTime.now();
     final todayWeekday = now.weekday;
-
-    // Read persisted current week (set by the app UI)
-    final currentWeek =
-        await HomeWidget.getWidgetData<int>('current_week') ?? 1;
 
     final todayCourses =
         filterCoursesForDay(allCourses, todayWeekday, currentWeek);

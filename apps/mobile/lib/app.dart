@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:presentation/presentation.dart';
 
-import 'providers/semester_providers.dart';
+import 'providers/bot_providers.dart';
 import 'providers/widget_providers.dart';
 import 'router/app_router.dart';
 
@@ -35,14 +35,14 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   }
 
   void _updateWidgets() {
-    final semester = ref.read(activeSemesterProvider);
-    ref.read(widgetServiceProvider).updateWidgets(
-          semesterName: semester?.name ?? '',
-        );
+    refreshWidgets(ref);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Eagerly initialize the TG bot relay so it starts polling.
+    ref.watch(botAgentRelayProvider);
+
     return MaterialApp.router(
       title: '课程表',
       theme: AppTheme.light(),

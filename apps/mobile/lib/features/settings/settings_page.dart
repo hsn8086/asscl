@@ -132,6 +132,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
 
+          const SizedBox(height: 8),
+
+          // --- Bot Integration ---
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.smart_toy),
+              title: const Text('Bot 集成'),
+              subtitle: const Text('Telegram 通知转发、AI 助手'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/bot'),
+            ),
+          ),
+
           const SizedBox(height: 16),
 
           // --- AI Config Section ---

@@ -36,9 +36,11 @@ asscl/
 │       │   │   ├── ai_providers.dart
 │       │   │   ├── widget_providers.dart
 │       │   │   ├── semester_providers.dart       # 学期 + 当前周计算
-│       │   │   └── shortened_names_provider.dart # AI 缩短课名（持久化缓存）
+│       │   │   ├── shortened_names_provider.dart # AI 缩短课名（持久化缓存）
+│       │   │   └── bot_providers.dart            # Telegram Bot 配置 + 中继
 │       │   ├── services/
-│       │   │   └── widget_service.dart    # 桌面组件数据同步服务
+│       │   │   ├── widget_service.dart    # 桌面组件数据同步服务
+│       │   │   └── bot_agent_relay.dart   # TG ↔ AI Agent 中继服务
 │       │   └── features/
 │       │       ├── schedule/          # 课程表 Tab
 │       │       │   ├── schedule_page.dart
@@ -60,7 +62,8 @@ asscl/
 │       │       └── settings/          # 设置
 │       │           ├── settings_page.dart       # AI 配置 + 助手设置 + 简称管理
 │       │           ├── period_config_page.dart   # 节次时间配置
-│       │           └── semester_manage_page.dart  # 学期管理
+│       │           ├── semester_manage_page.dart  # 学期管理
+│       │           └── bot_settings_page.dart     # Bot 集成设置（Telegram）
 │       ├── android/
 │       │   └── app/src/main/
 │       │       ├── kotlin/.../
@@ -84,7 +87,8 @@ asscl/
 │   │       │                          # PeriodTime, PeriodConfig, SchoolPreset, AiParsedCourse
 │   │       ├── data/                  # 静态数据（school_presets.dart）
 │   │       ├── repositories/          # 仓库抽象接口（含 SemesterRepository）
-│   │       ├── services/              # NotificationService, AiImportService, AiAgentService 接口
+│   │       ├── services/              # NotificationService, AiImportService, AiAgentService,
+│   │       │                          # BotPlatformService 接口
 │   │       └── usecases/              # 用例（course/, task/, reminder/）
 │   ├── data/                          # 数据层
 │   │   └── lib/src/
@@ -96,7 +100,8 @@ asscl/
 │   │       │   └── database_factory.dart
 │   │       ├── mappers/               # Drift row ↔ Domain entity
 │   │       ├── repositories/          # 仓库实现（含 SemesterRepositoryImpl）
-│   │       └── services/              # NotificationServiceImpl, AiImportServiceImpl, AiAgentServiceImpl
+│   │       └── services/              # NotificationServiceImpl, AiImportServiceImpl,
+│   │                                  # AiAgentServiceImpl, TelegramBotService
 │   └── presentation/                  # 共享 Widget + 主题
 │       └── lib/src/
 │           ├── theme/app_theme.dart
@@ -121,6 +126,7 @@ asscl/
 - **桌面组件**: home_widget (Android AppWidget)
 - **AI 渲染**: gpt_markdown (Markdown + KaTeX)
 - **AI 接口**: OpenAI 兼容 API（可配置 endpoint/key/model）
+- **Bot 集成**: Telegram Bot API 9.5+（sendMessageDraft 流式输出）
 - **ID 策略**: UUID (uuid 包)
 
 ### 底部导航结构

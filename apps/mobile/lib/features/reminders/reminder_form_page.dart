@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../providers/bot_providers.dart';
 import '../../providers/reminder_providers.dart';
 
 const _uuid = Uuid();
@@ -83,6 +84,7 @@ class _ReminderFormPageState extends ConsumerState<ReminderFormPage> {
     );
 
     await ref.read(reminderRepositoryProvider).save(reminder);
+    forwardReminderToTg(ref, reminder);
     ref.invalidate(watchRemindersProvider);
     if (widget.reminderId != null) {
       ref.invalidate(reminderDetailProvider(widget.reminderId!));

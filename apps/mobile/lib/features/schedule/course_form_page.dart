@@ -102,7 +102,7 @@ class _CourseFormPageState extends ConsumerState<CourseFormPage> {
 
     await ref.read(courseRepositoryProvider).save(course);
     ref.invalidate(watchCoursesProvider);
-    ref.read(widgetServiceProvider).updateWidgets();
+    refreshWidgets(ref);
     if (widget.courseId != null) {
       ref.invalidate(courseDetailProvider(widget.courseId!));
     }

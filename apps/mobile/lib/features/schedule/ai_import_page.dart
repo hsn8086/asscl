@@ -15,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../providers/ai_providers.dart';
+import '../../providers/bot_providers.dart';
 import '../../providers/course_providers.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/period_config_providers.dart';
@@ -775,7 +776,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     }
 
     ref.invalidate(watchCoursesProvider);
-    ref.read(widgetServiceProvider).updateWidgets();
+    refreshWidgets(ref);
 
     final agent = ref.read(aiAgentServiceProvider);
     if (agent != null && msg.toolCalls != null) {
@@ -835,7 +836,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     final repo = ref.read(courseRepositoryProvider);
     await repo.save(updated);
     ref.invalidate(watchCoursesProvider);
-    ref.read(widgetServiceProvider).updateWidgets();
+    refreshWidgets(ref);
 
     final agent = ref.read(aiAgentServiceProvider);
     if (agent != null && msg.toolCalls != null) {
@@ -887,7 +888,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       await repo.delete(c.id);
     }
     ref.invalidate(watchCoursesProvider);
-    ref.read(widgetServiceProvider).updateWidgets();
+    refreshWidgets(ref);
 
     final agent = ref.read(aiAgentServiceProvider);
     if (agent != null && msg.toolCalls != null) {
@@ -1330,6 +1331,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     );
 
     await ref.read(reminderRepositoryProvider).save(reminder);
+    forwardReminderToTg(ref, reminder);
     ref.invalidate(watchRemindersProvider);
 
     final agent = ref.read(aiAgentServiceProvider);
