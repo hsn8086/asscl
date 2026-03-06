@@ -7,6 +7,8 @@
 ```
 asscl/
 ├── CLAUDE.md                          # Agent 工作指南
+├── README.md                          # 项目 README
+├── .github/workflows/ci.yml          # GitHub Actions CI
 ├── docs/
 │   ├── PRD.md                         # 产品需求文档
 │   ├── project_structure.md           # 本文件
@@ -18,11 +20,11 @@ asscl/
 ├── apps/
 │   └── mobile/                        # Flutter 应用 (iOS/Android)
 │       ├── lib/
-│       │   ├── main.dart              # 应用入口
-│       │   ├── app.dart               # MaterialApp.router
+│       │   ├── main.dart              # 应用入口（通知权限申请）
+│       │   ├── app.dart               # MaterialApp.router + 微件同步
 │       │   ├── router/
 │       │   │   ├── app_router.dart    # GoRouter + StatefulShellRoute
-│       │   │   └── main_scaffold.dart # 底部导航栏
+│       │   │   └── main_scaffold.dart # 底部导航栏（4 Tab）
 │       │   ├── providers/
 │       │   │   ├── database_provider.dart
 │       │   │   ├── course_providers.dart
@@ -32,7 +34,9 @@ asscl/
 │       │   │   ├── view_providers.dart
 │       │   │   ├── period_config_providers.dart
 │       │   │   ├── ai_providers.dart
-│       │   │   └── widget_providers.dart
+│       │   │   ├── widget_providers.dart
+│       │   │   ├── semester_providers.dart       # 学期 + 当前周计算
+│       │   │   └── shortened_names_provider.dart # AI 缩短课名（持久化缓存）
 │       │   ├── services/
 │       │   │   └── widget_service.dart    # 桌面组件数据同步服务
 │       │   └── features/
@@ -40,11 +44,11 @@ asscl/
 │       │       │   ├── schedule_page.dart
 │       │       │   ├── course_detail_page.dart
 │       │       │   ├── course_form_page.dart
-│       │       │   ├── ai_import_page.dart   # AI 智能录入
+│       │       │   ├── ai_import_page.dart   # AI 助手（独立 Tab）
 │       │       │   └── widgets/
 │       │       │       ├── week_grid_view.dart  # 含时间指针
 │       │       │       ├── time_stream_view.dart
-│       │       │       └── course_card.dart
+│       │       │       └── course_card.dart     # 支持 AI 简称显示
 │       │       ├── tasks/             # 任务 Tab
 │       │       │   ├── tasks_page.dart
 │       │       │   ├── task_detail_page.dart
@@ -54,7 +58,20 @@ asscl/
 │       │       │   ├── reminder_detail_page.dart
 │       │       │   └── reminder_form_page.dart
 │       │       └── settings/          # 设置
-│       │           └── settings_page.dart  # 节次时间 + AI 配置
+│       │           ├── settings_page.dart       # AI 配置 + 助手设置 + 简称管理
+│       │           ├── period_config_page.dart   # 节次时间配置
+│       │           └── semester_manage_page.dart  # 学期管理
+│       ├── android/
+│       │   └── app/src/main/
+│       │       ├── kotlin/.../
+│       │       │   ├── NextClassWidgetProvider.kt      # 下节课微件
+│       │       │   └── TodayScheduleWidgetProvider.kt  # 周课表微件
+│       │       └── res/layout/
+│       │           ├── widget_next_class.xml
+│       │           ├── widget_today_schedule.xml
+│       │           ├── widget_period_course.xml       # 课程起始格
+│       │           ├── widget_period_course_cont.xml  # 课程延续格（无间隙）
+│       │           └── widget_period_empty.xml        # 空格
 │       └── test/
 │           ├── widget_test.dart
 │           └── services/
@@ -63,21 +80,23 @@ asscl/
 │   ├── domain/                        # 纯 Dart 包：领域层
 │   │   └── lib/src/
 │   │       ├── enums/                 # WeekMode, Priority, ViewType, ReminderType
-│   │       ├── entities/              # Course, Task(+SubTask), Reminder, PeriodTime, PeriodConfig, SchoolPreset, AiParsedCourse
+│   │       ├── entities/              # Course, Task(+SubTask), Reminder, Semester,
+│   │       │                          # PeriodTime, PeriodConfig, SchoolPreset, AiParsedCourse
 │   │       ├── data/                  # 静态数据（school_presets.dart）
-│   │       ├── repositories/          # 仓库抽象接口（含 PeriodConfigRepository）
-│   │       ├── services/              # NotificationService, AiImportService 接口
+│   │       ├── repositories/          # 仓库抽象接口（含 SemesterRepository）
+│   │       ├── services/              # NotificationService, AiImportService, AiAgentService 接口
 │   │       └── usecases/              # 用例（course/, task/, reminder/）
 │   ├── data/                          # 数据层
 │   │   └── lib/src/
 │   │       ├── database/
-│   │       │   ├── tables/            # Drift 表（含 PeriodTimesTable, SettingsTable）
-│   │       │   ├── daos/              # CourseDao, TaskDao, ReminderDao, PeriodTimeDao, SettingsDao
-│   │       │   ├── app_database.dart  # @DriftDatabase (schema v2)
+│   │       │   ├── tables/            # Drift 表（含 SemestersTable, SettingsTable）
+│   │       │   ├── daos/              # CourseDao, TaskDao, ReminderDao, PeriodTimeDao,
+│   │       │   │                      # SettingsDao, SemesterDao, ChatSessionDao
+│   │       │   ├── app_database.dart  # @DriftDatabase (schema v5)
 │   │       │   └── database_factory.dart
 │   │       ├── mappers/               # Drift row ↔ Domain entity
-│   │       ├── repositories/          # 仓库实现（含 PeriodConfigRepositoryImpl）
-│   │       └── services/              # NotificationServiceImpl, AiImportServiceImpl
+│   │       ├── repositories/          # 仓库实现（含 SemesterRepositoryImpl）
+│   │       └── services/              # NotificationServiceImpl, AiImportServiceImpl, AiAgentServiceImpl
 │   └── presentation/                  # 共享 Widget + 主题
 │       └── lib/src/
 │           ├── theme/app_theme.dart
@@ -88,19 +107,45 @@ asscl/
 
 | 模块 | 类型 | 说明 | 依赖 |
 |------|------|------|------|
-| `packages/domain` | 纯 Dart | 实体、枚举、仓库接口、用例 | equatable, uuid |
-| `packages/data` | Flutter | Drift 数据库、DAO、仓库实现、通知服务、AI 导入服务 | domain, drift, flutter_local_notifications, http |
+| `packages/domain` | 纯 Dart | 实体、枚举、仓库接口、用例、服务接口 | equatable, uuid |
+| `packages/data` | Flutter | Drift 数据库、DAO、仓库实现、通知服务、AI 服务 | domain, drift, flutter_local_notifications, http |
 | `packages/presentation` | Flutter | 共享主题与 Widget | domain, flutter |
-| `apps/mobile` | Flutter App | UI 页面、路由、状态管理 | domain, data, presentation, riverpod, go_router |
+| `apps/mobile` | Flutter App | UI 页面、路由、状态管理 | domain, data, presentation, riverpod, go_router, gpt_markdown |
 
 ### 技术栈
 
 - **状态管理**: flutter_riverpod
-- **数据库**: drift (SQLite)
-- **路由**: go_router (StatefulShellRoute)
+- **数据库**: drift (SQLite)，schema v5
+- **路由**: go_router (StatefulShellRoute，4 Tab)
 - **通知**: flutter_local_notifications
 - **桌面组件**: home_widget (Android AppWidget)
+- **AI 渲染**: gpt_markdown (Markdown + KaTeX)
+- **AI 接口**: OpenAI 兼容 API（可配置 endpoint/key/model）
 - **ID 策略**: UUID (uuid 包)
+
+### 底部导航结构
+
+| Tab | 路由 | 页面 |
+|-----|------|------|
+| 课程表 | `/schedule` | SchedulePage |
+| AI 助手 | `/agent` | AiImportPage |
+| 任务 | `/tasks` | TasksPage |
+| 提醒 | `/reminders` | RemindersPage |
+
+### AI Agent 工具
+
+AiAgentService 支持 8 个工具调用：
+
+| 工具 | 说明 |
+|------|------|
+| `import_courses` | 从文本/图片导入课程 |
+| `query_courses` | 查询课程 |
+| `update_course` | 修改课程 |
+| `delete_courses` | 删除课程 |
+| `set_current_week` | 设置当前周次 |
+| `add_task` | 添加任务 |
+| `add_reminder` | 添加提醒 |
+| `set_period_times` | 设置节次时间 |
 
 ### 架构原则
 
@@ -111,5 +156,8 @@ asscl/
 
 ## 相关文档
 
+- [README](../README.md)
 - [PRD](./PRD.md)
-- [MVP 路线图](./plans/0001-flutter-mvp-roadmap.md)
+- [提交规范](./commit_convention.md)
+- [Bug 复盘](./bugs_tomb/README.md)
+- [计划文档](./plans/README.md)
