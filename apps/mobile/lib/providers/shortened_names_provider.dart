@@ -98,7 +98,9 @@ class ShortenedCourseNamesNotifier
     AiImportConfig config,
     List<Course> courses,
   ) async {
-    final uniqueNames = courses.map((c) => c.name).toSet().toList();
+    // Deduplicate by trimmed name so identical courses only get translated once
+    final uniqueNames =
+        courses.map((c) => c.name.trim()).toSet().toList();
     if (uniqueNames.every((n) => n.length <= 4)) return {};
 
     try {
@@ -142,10 +144,19 @@ class ShortenedCourseNamesNotifier
         if (jsonStr == null) return {};
 
         final mapping = jsonDecode(jsonStr) as Map<String, dynamic>;
+        // Build a trimmed-name → shortName lookup for O(1) reuse
+        final nameLookup = <String, String>{};
+        for (final entry in mapping.entries) {
+          final short = entry.value as String?;
+          if (short != null) {
+            nameLookup[entry.key.trim()] = short;
+          }
+        }
+
         final result = <String, String>{};
         for (final course in courses) {
-          final shortName = mapping[course.name] as String?;
-          if (shortName != null && shortName != course.name) {
+          final shortName = nameLookup[course.name.trim()];
+          if (shortName != null && shortName != course.name.trim()) {
             result[course.id] = shortName;
           }
         }

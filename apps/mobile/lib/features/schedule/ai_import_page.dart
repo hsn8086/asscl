@@ -210,8 +210,24 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
 
     String content;
     try {
-      if (ext == 'xlsx' || ext == 'xls') {
+      if (ext == 'xlsx') {
         content = _parseExcel(file);
+      } else if (ext == 'xls') {
+        // The excel package only supports .xlsx, not legacy .xls (BIFF) format.
+        // Try parsing — if it's actually xlsx with wrong extension it may work.
+        try {
+          content = _parseExcel(file);
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('不支持旧版 .xls 格式，请用 Excel 另存为 .xlsx 后重试'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
+        }
       } else {
         content = await file.readAsString();
       }

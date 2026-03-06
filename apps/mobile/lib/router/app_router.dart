@@ -8,6 +8,7 @@ import '../features/schedule/ai_import_page.dart';
 import '../features/settings/settings_page.dart';
 import '../features/settings/period_config_page.dart';
 import '../features/settings/semester_manage_page.dart';
+import '../features/settings/shortened_names_page.dart';
 import '../features/tasks/tasks_page.dart';
 import '../features/tasks/task_detail_page.dart';
 import '../features/tasks/task_form_page.dart';
@@ -36,6 +37,11 @@ final routerProvider = GoRouter(
           path: 'semesters',
           parentNavigatorKey: _rootNavigatorKey,
           builder: (_, __) => const SemesterManagePage(),
+        ),
+        GoRoute(
+          path: 'shortened-names',
+          parentNavigatorKey: _rootNavigatorKey,
+          builder: (_, __) => const ShortenedNamesPage(),
         ),
       ],
     ),
