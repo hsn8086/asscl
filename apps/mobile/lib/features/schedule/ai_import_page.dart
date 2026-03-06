@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
@@ -1629,14 +1630,19 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Flexible(
-                      child: SelectableText(
-                        msg.text!,
-                        style: TextStyle(
-                          color: isUser
-                              ? theme.colorScheme.onPrimary
-                              : theme.colorScheme.onSurface,
-                        ),
-                      ),
+                      child: isUser
+                          ? SelectableText(
+                              msg.text!,
+                              style: TextStyle(
+                                color: theme.colorScheme.onPrimary,
+                              ),
+                            )
+                          : GptMarkdown(
+                              msg.text!,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
                     ),
                     if (msg.isStreaming) ...[
                       const SizedBox(width: 4),
