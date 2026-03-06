@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../providers/course_providers.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/ai_providers.dart';
 import '../../providers/shortened_names_provider.dart';
@@ -99,6 +100,147 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     setState(() => _aiShortenNames = value);
   }
 
+  Widget _buildShortenedNamesList(BuildContext context) {
+    final shortenedAsync = ref.watch(shortenedCourseNamesProvider);
+    final coursesAsync = ref.watch(watchCoursesProvider);
+    final courses = coursesAsync.valueOrNull ?? [];
+    final shortened = shortenedAsync.valueOrNull ?? {};
+    final isLoading = shortenedAsync.isLoading;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Text('简称管理',
+                style: Theme.of(context).textTheme.labelLarge),
+            const Spacer(),
+            if (isLoading)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            if (!isLoading && shortened.isNotEmpty) ...[
+              TextButton.icon(
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('重新生成'),
+                onPressed: () => ref
+                    .read(shortenedCourseNamesProvider.notifier)
+                    .regenerate(),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.delete_outline, size: 16),
+                label: const Text('清除全部'),
+                onPressed: () => ref
+                    .read(shortenedCourseNamesProvider.notifier)
+                    .clearAll(),
+              ),
+            ],
+          ],
+        ),
+        if (shortened.isEmpty && !isLoading)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              '暂无简称缓存，将在课程加载后自动生成',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        if (shortened.isNotEmpty)
+          ...courses
+              .where((c) => shortened.containsKey(c.id))
+              .map((c) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(c.name,
+                        style: const TextStyle(fontSize: 13)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          shortened[c.id]!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 18),
+                          onPressed: () =>
+                              _editShortName(context, c.id, c.name, shortened[c.id]!),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => ref
+                              .read(shortenedCourseNamesProvider.notifier)
+                              .removeName(c.id),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  )),
+      ],
+    );
+  }
+
+  Future<void> _editShortName(
+    BuildContext context,
+    String courseId,
+    String fullName,
+    String currentShortName,
+  ) async {
+    final controller = TextEditingController(text: currentShortName);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('编辑简称'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('原名: $fullName',
+                style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '简称',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result != null && result.isNotEmpty && mounted) {
+      ref.read(shortenedCourseNamesProvider.notifier).setName(courseId, result);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     _loadSettings();
@@ -189,6 +331,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             onChanged: _toggleAiShortenNames,
             contentPadding: EdgeInsets.zero,
           ),
+          if (_aiShortenNames) _buildShortenedNamesList(context),
 
           const SizedBox(height: 32),
         ],

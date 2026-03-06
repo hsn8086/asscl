@@ -9,6 +9,8 @@ import 'ai_providers.dart';
 import 'course_providers.dart';
 import 'database_provider.dart';
 
+const _cacheKey = 'shortenedCourseNames';
+
 /// Whether AI-shortened course names are enabled.
 final aiShortenNamesEnabledProvider = FutureProvider<bool>((ref) async {
   final db = ref.watch(appDatabaseProvider);
@@ -17,8 +19,8 @@ final aiShortenNamesEnabledProvider = FutureProvider<bool>((ref) async {
   return value == 'true';
 });
 
-/// Runtime cache of shortened course names: courseId → shortName.
-/// Only populated when the setting is enabled and AI config is available.
+/// Persistent cache of shortened course names: courseId → shortName.
+/// Stored as JSON in the settings table.
 final shortenedCourseNamesProvider =
     AsyncNotifierProvider<ShortenedCourseNamesNotifier, Map<String, String>>(
   ShortenedCourseNamesNotifier.new,
@@ -26,37 +28,87 @@ final shortenedCourseNamesProvider =
 
 class ShortenedCourseNamesNotifier
     extends AsyncNotifier<Map<String, String>> {
+  SettingsDao get _dao => SettingsDao(ref.read(appDatabaseProvider));
+
   @override
   Future<Map<String, String>> build() async {
     final enabled = await ref.watch(aiShortenNamesEnabledProvider.future);
     if (!enabled) return {};
 
+    // Load from DB cache
+    final cached = await _loadCache();
+    if (cached.isNotEmpty) return cached;
+
+    // No cache — try AI generation
     final config = ref.watch(aiConfigProvider).valueOrNull;
     if (config == null) return {};
 
     final courses = await ref.watch(watchCoursesProvider.future);
     if (courses.isEmpty) return {};
 
-    return _shortenNames(config, courses);
+    final result = await _shortenNamesViaAi(config, courses);
+    if (result.isNotEmpty) await _saveCache(result);
+    return result;
   }
 
-  Future<Map<String, String>> _shortenNames(
+  /// Manually set a shortened name for a course.
+  Future<void> setName(String courseId, String shortName) async {
+    final current = state.valueOrNull ?? {};
+    final updated = {...current, courseId: shortName};
+    state = AsyncData(updated);
+    await _saveCache(updated);
+  }
+
+  /// Remove a single shortened name (revert to original).
+  Future<void> removeName(String courseId) async {
+    final current = state.valueOrNull ?? {};
+    final updated = {...current}..remove(courseId);
+    state = AsyncData(updated);
+    await _saveCache(updated);
+  }
+
+  /// Clear all shortened names and regenerate via AI.
+  Future<void> regenerate() async {
+    await _dao.deleteKey(_cacheKey);
+    ref.invalidateSelf();
+  }
+
+  /// Clear all shortened names without regenerating.
+  Future<void> clearAll() async {
+    state = const AsyncData({});
+    await _dao.deleteKey(_cacheKey);
+  }
+
+  Future<Map<String, String>> _loadCache() async {
+    final raw = await _dao.getValue(_cacheKey);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      return map.map((k, v) => MapEntry(k, v as String));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _saveCache(Map<String, String> data) async {
+    await _dao.setValue(_cacheKey, jsonEncode(data));
+  }
+
+  Future<Map<String, String>> _shortenNamesViaAi(
     AiImportConfig config,
     List<Course> courses,
   ) async {
-    // Build name list (deduplicate by name)
     final uniqueNames = courses.map((c) => c.name).toSet().toList();
-
-    // Skip if all names are already short (≤ 4 characters)
-    if (uniqueNames.every((n) => n.length <= 4)) {
-      return {};
-    }
+    if (uniqueNames.every((n) => n.length <= 4)) return {};
 
     try {
       final client = http.Client();
       try {
-        final nameList =
-            uniqueNames.asMap().entries.map((e) => '${e.key}. ${e.value}').join('\n');
+        final nameList = uniqueNames
+            .asMap()
+            .entries
+            .map((e) => '${e.key}. ${e.value}')
+            .join('\n');
 
         final response = await client.post(
           Uri.parse(config.apiEndpoint),
@@ -85,16 +137,11 @@ class ShortenedCourseNamesNotifier
         if (response.statusCode != 200) return {};
 
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final content =
-            json['choices'][0]['message']['content'] as String;
-
-        // Extract JSON from response (may have markdown code block)
+        final content = json['choices'][0]['message']['content'] as String;
         final jsonStr = _extractJson(content);
         if (jsonStr == null) return {};
 
         final mapping = jsonDecode(jsonStr) as Map<String, dynamic>;
-
-        // Build courseId → shortName map
         final result = <String, String>{};
         for (final course in courses) {
           final shortName = mapping[course.name] as String?;
@@ -112,13 +159,11 @@ class ShortenedCourseNamesNotifier
   }
 
   String? _extractJson(String content) {
-    // Try to extract from code block
     final codeBlockMatch =
         RegExp(r'```(?:json)?\s*([\s\S]*?)```').firstMatch(content);
     if (codeBlockMatch != null) {
       return codeBlockMatch.group(1)!.trim();
     }
-    // Try raw JSON
     final trimmed = content.trim();
     if (trimmed.startsWith('{')) return trimmed;
     return null;
