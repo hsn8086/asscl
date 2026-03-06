@@ -243,9 +243,18 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       final sheet = excel.tables[sheetName]!;
       buf.writeln('--- Sheet: $sheetName ---');
       for (final row in sheet.rows) {
-        final cells =
-            row.map((cell) => cell?.value?.toString() ?? '').toList();
-        buf.writeln(cells.join('\t'));
+        final cells = row.map((cell) {
+          final raw = cell?.value?.toString() ?? '';
+          // CSV-style escaping: quote if contains comma, quote, or newline
+          if (raw.contains(',') ||
+              raw.contains('"') ||
+              raw.contains('\n') ||
+              raw.contains('\r')) {
+            return '"${raw.replaceAll('"', '""')}"';
+          }
+          return raw;
+        }).toList();
+        buf.writeln(cells.join(','));
       }
       buf.writeln();
     }
