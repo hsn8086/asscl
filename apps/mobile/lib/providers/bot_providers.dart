@@ -1,5 +1,6 @@
 import 'package:data/data.dart';
 import 'package:domain/domain.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -12,12 +13,14 @@ class TgBotConfig {
   final String chatId;
   final bool notifyEnabled;
   final bool agentEnabled;
+  final bool keepAlive;
 
   const TgBotConfig({
     required this.token,
     required this.chatId,
     this.notifyEnabled = false,
     this.agentEnabled = false,
+    this.keepAlive = false,
   });
 
   bool get isValid => token.isNotEmpty && chatId.isNotEmpty;
@@ -36,12 +39,14 @@ final tgConfigProvider = FutureProvider<TgBotConfig?>((ref) async {
 
   final notify = await dao.getValue('tgNotifyEnabled');
   final agent = await dao.getValue('tgAgentEnabled');
+  final keepAlive = await dao.getValue('tgKeepAlive');
 
   return TgBotConfig(
     token: token,
     chatId: chatId ?? '',
     notifyEnabled: notify == 'true',
     agentEnabled: agent == 'true',
+    keepAlive: keepAlive == 'true',
   );
 });
 
@@ -75,14 +80,73 @@ Future<void> forwardReminderToTg(dynamic ref, Reminder reminder) async {
 
 /// Manages the [BotAgentRelay] lifecycle.
 /// Starts polling when TG agent is enabled, stops when disabled.
+/// When keepAlive is enabled, starts an Android foreground service.
 final botAgentRelayProvider = Provider<BotAgentRelay>((ref) {
   final relay = BotAgentRelay(ref);
   final config = ref.watch(tgConfigProvider).valueOrNull;
 
   if (config != null && config.agentEnabled && config.isValid) {
     relay.start();
+    if (config.keepAlive) {
+      _startForegroundService();
+    } else {
+      _stopForegroundService();
+    }
+  } else {
+    _stopForegroundService();
   }
 
-  ref.onDispose(() => relay.stop());
+  ref.onDispose(() {
+    relay.stop();
+    _stopForegroundService();
+  });
   return relay;
 });
+
+// ── Foreground service helpers ──
+
+bool _foregroundInitialized = false;
+
+void initForegroundTask() {
+  if (_foregroundInitialized) return;
+  _foregroundInitialized = true;
+  FlutterForegroundTask.init(
+    androidNotificationOptions: AndroidNotificationOptions(
+      channelId: 'tg_bot_keep_alive',
+      channelName: 'Bot 保活',
+      channelDescription: 'Telegram Bot 后台轮询服务',
+      channelImportance: NotificationChannelImportance.LOW,
+      priority: NotificationPriority.LOW,
+      playSound: false,
+      showBadge: false,
+    ),
+    iosNotificationOptions: const IOSNotificationOptions(
+      showNotification: false,
+      playSound: false,
+    ),
+    foregroundTaskOptions: ForegroundTaskOptions(
+      eventAction: ForegroundTaskEventAction.nothing(),
+      autoRunOnBoot: false,
+      autoRunOnMyPackageReplaced: false,
+      allowWakeLock: true,
+      allowWifiLock: true,
+    ),
+  );
+}
+
+Future<void> _startForegroundService() async {
+  initForegroundTask();
+  if (await FlutterForegroundTask.isRunningService) return;
+  await FlutterForegroundTask.startService(
+    serviceId: 888,
+    notificationTitle: 'Bot 运行中',
+    notificationText: 'Telegram Bot 正在后台监听消息',
+  );
+}
+
+Future<void> _stopForegroundService() async {
+  if (!_foregroundInitialized) return;
+  if (await FlutterForegroundTask.isRunningService) {
+    await FlutterForegroundTask.stopService();
+  }
+}

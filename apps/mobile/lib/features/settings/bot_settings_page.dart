@@ -18,6 +18,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
   bool _enabled = false;
   bool _notifyEnabled = false;
   bool _agentEnabled = false;
+  bool _keepAlive = false;
   bool _isLoaded = false;
   bool _testing = false;
   String? _testResult;
@@ -39,6 +40,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
     final enabled = await dao.getValue('tgEnabled');
     final notify = await dao.getValue('tgNotifyEnabled');
     final agent = await dao.getValue('tgAgentEnabled');
+    final keepAlive = await dao.getValue('tgKeepAlive');
     if (mounted) {
       setState(() {
         _tokenController.text = token ?? '';
@@ -46,6 +48,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
         _enabled = enabled == 'true';
         _notifyEnabled = notify == 'true';
         _agentEnabled = agent == 'true';
+        _keepAlive = keepAlive == 'true';
       });
     }
   }
@@ -69,6 +72,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
     await dao.setValue('tgEnabled', _enabled.toString());
     await dao.setValue('tgNotifyEnabled', _notifyEnabled.toString());
     await dao.setValue('tgAgentEnabled', _agentEnabled.toString());
+    await dao.setValue('tgKeepAlive', _keepAlive.toString());
 
     ref.invalidate(tgConfigProvider);
 
@@ -116,6 +120,12 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
 
   Future<void> _toggleAgent(bool value) async {
     setState(() => _agentEnabled = value);
+    if (!value) setState(() => _keepAlive = false);
+    await _save();
+  }
+
+  Future<void> _toggleKeepAlive(bool value) async {
+    setState(() => _keepAlive = value);
     await _save();
   }
 
@@ -246,6 +256,16 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
                     value: _agentEnabled,
                     onChanged: _toggleAgent,
                   ),
+                  if (_agentEnabled) ...[
+                    const Divider(height: 1, indent: 56),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.battery_saver),
+                      title: const Text('后台保活'),
+                      subtitle: const Text('App 退到后台时保持 Bot 轮询'),
+                      value: _keepAlive,
+                      onChanged: _toggleKeepAlive,
+                    ),
+                  ],
                 ],
               ),
             ),
