@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../providers/period_config_providers.dart';
+import '../../../providers/shortened_names_provider.dart';
 
 const _weekdayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -58,6 +59,10 @@ class CourseCard extends ConsumerWidget {
     }
 
     // Grid card — may span multiple periods
+    final shortenedNames =
+        ref.watch(shortenedCourseNamesProvider).valueOrNull ?? {};
+    final displayName = shortenedNames[course.id] ?? course.name;
+
     return GestureDetector(
       onTap: () => context.go('/schedule/course/${course.id}'),
       child: Container(
@@ -72,16 +77,16 @@ class CourseCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              course.name,
+              displayName,
               style: TextStyle(
                 fontSize: spanPeriods > 1 ? 11 : 10,
                 fontWeight: FontWeight.w500,
                 color: _color,
               ),
-              maxLines: spanPeriods > 1 ? 2 : 2,
+              maxLines: spanPeriods > 2 ? 3 : 2,
               overflow: TextOverflow.ellipsis,
             ),
-            if (spanPeriods > 1 && course.location != null) ...[
+            if (course.location != null) ...[
               const SizedBox(height: 2),
               Text(
                 course.location!,
@@ -90,7 +95,7 @@ class CourseCard extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
-            if (spanPeriods > 2 && course.teacher != null) ...[
+            if (course.teacher != null) ...[
               const SizedBox(height: 1),
               Text(
                 course.teacher!,

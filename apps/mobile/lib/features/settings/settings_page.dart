@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers/database_provider.dart';
 import '../../providers/ai_providers.dart';
+import '../../providers/shortened_names_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -19,6 +20,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _apiKeyController = TextEditingController();
   final _modelController = TextEditingController();
   bool _enterToSend = false;
+  bool _aiShortenNames = false;
   bool _isLoaded = false;
 
   @override
@@ -38,12 +40,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final key = await dao.getValue('aiApiKey');
     final model = await dao.getValue('aiModelName');
     final enterToSend = await dao.getValue('enterToSend');
+    final aiShortenNames = await dao.getValue('aiShortenNames');
     if (mounted) {
       setState(() {
         _endpointController.text = endpoint ?? '';
         _apiKeyController.text = key ?? '';
         _modelController.text = model ?? '';
         _enterToSend = enterToSend == 'true';
+        _aiShortenNames = aiShortenNames == 'true';
       });
     }
   }
@@ -85,6 +89,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await dao.setValue('enterToSend', value.toString());
     ref.invalidate(enterToSendProvider);
     setState(() => _enterToSend = value);
+  }
+
+  Future<void> _toggleAiShortenNames(bool value) async {
+    final db = ref.read(appDatabaseProvider);
+    final dao = SettingsDao(db);
+    await dao.setValue('aiShortenNames', value.toString());
+    ref.invalidate(aiShortenNamesEnabledProvider);
+    setState(() => _aiShortenNames = value);
   }
 
   @override
@@ -168,6 +180,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             subtitle: Text(_enterToSend ? 'Enter 发送消息，Shift+Enter 换行' : 'Enter 换行'),
             value: _enterToSend,
             onChanged: _toggleEnterToSend,
+            contentPadding: EdgeInsets.zero,
+          ),
+          SwitchListTile(
+            title: const Text('AI 缩短课程名'),
+            subtitle: const Text('在课表格子中用 AI 生成的简称显示，不修改原名'),
+            value: _aiShortenNames,
+            onChanged: _toggleAiShortenNames,
             contentPadding: EdgeInsets.zero,
           ),
 

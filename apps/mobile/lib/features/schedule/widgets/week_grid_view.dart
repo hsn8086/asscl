@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:domain/domain.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:presentation/presentation.dart';
 
 import '../../../providers/course_providers.dart';
@@ -111,11 +112,11 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
     final todayWeekday = isCurrentWeek ? _now.weekday : -1;
 
     final courseMap = <(int, int), Course>{};
-    final occupied = <(int, int)>{};
+    final occupiedBy = <(int, int), Course>{};
     for (final c in courses) {
       courseMap[(c.weekday, c.startPeriod)] = c;
       for (int p = c.startPeriod; p <= c.endPeriod; p++) {
-        occupied.add((c.weekday, p));
+        occupiedBy[(c.weekday, p)] = c;
       }
     }
 
@@ -162,7 +163,8 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
                       width: clampedWidth,
                       height: cellHeight,
                       child: _cellContent(
-                        courseMap, occupied, day, period,
+                        context,
+                        courseMap, occupiedBy, day, period,
                         clampedWidth, cellHeight,
                       ),
                     ),
@@ -264,8 +266,9 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
   }
 
   Widget _cellContent(
+    BuildContext context,
     Map<(int, int), Course> courseMap,
-    Set<(int, int)> occupied,
+    Map<(int, int), Course> occupiedBy,
     int weekday,
     int period,
     double cellWidth,
@@ -288,8 +291,14 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
       );
     }
 
-    if (occupied.contains((weekday, period))) {
-      return const SizedBox.shrink();
+    // Occupied by a multi-period course — transparent but tappable
+    final owner = occupiedBy[(weekday, period)];
+    if (owner != null) {
+      return GestureDetector(
+        onTap: () => context.go('/schedule/course/${owner.id}'),
+        behavior: HitTestBehavior.opaque,
+        child: const SizedBox.expand(),
+      );
     }
 
     return const SizedBox.shrink();
