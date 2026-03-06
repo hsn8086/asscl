@@ -1,0 +1,28 @@
+name: data
+description: Data layer - Drift database, DAOs, repository implementations.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  domain:
+    path: ../domain
+  drift: ^2.24.0
+  sqlite3_flutter_libs: ^0.5.30
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
+  rxdart: ^0.28.0
+  http: ^1.2.0
+  uuid: ^4.5.1
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
+  drift_dev: ^2.24.0
+  build_runner: ^2.4.15

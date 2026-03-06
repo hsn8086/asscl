@@ -1,0 +1,1672 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:data/data.dart';
+import 'package:domain/domain.dart';
+import 'package:drift/drift.dart' show Value;
+import 'package:excel/excel.dart' as xl;
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../providers/ai_providers.dart';
+import '../../providers/course_providers.dart';
+import '../../providers/period_config_providers.dart';
+import '../../providers/semester_providers.dart';
+import '../../providers/widget_providers.dart';
+
+const _uuid = Uuid();
+
+// ===== Tool call confirmation state =====
+enum _ToolCallStatus { pending, confirmed, rejected }
+
+// ===== UI message model =====
+class _UiMessage {
+  final String id;
+  final ChatRole role;
+  String? text;
+  final List<File> imageFiles;
+  List<AiParsedCourse>? parsedCourses;
+  List<ChatToolCall>? toolCalls;
+  bool isStreaming;
+  _ToolCallStatus? toolCallStatus;
+
+  /// For update_course: original course + changed fields
+  Course? updateOriginalCourse;
+  Map<String, dynamic>? updateFields;
+
+  /// For delete_courses: courses to be deleted
+  List<Course>? deleteCourses;
+
+  _UiMessage({
+    String? id,
+    required this.role,
+    this.text,
+    this.imageFiles = const [],
+    this.parsedCourses,
+    this.isStreaming = false,
+  }) : id = id ?? _uuid.v4(),
+       toolCallStatus = null;
+}
+
+// ===== Module-level persistent state =====
+// Survives widget disposal / page navigation.
+class _ChatPersistence {
+  final messages = <_UiMessage>[];
+  final pendingImages = <File>[];
+  bool isSending = false;
+  String? currentSessionId;
+  bool isLoadedFromDb = false;
+  StreamSubscription<ChatStreamDelta>? streamSub;
+
+  /// Widget callback — set by the page, cleared on dispose.
+  VoidCallback? onChanged;
+
+  void notify() => onChanged?.call();
+
+  void reset() {
+    streamSub?.cancel();
+    streamSub = null;
+    messages.clear();
+    pendingImages.clear();
+    isSending = false;
+    currentSessionId = null;
+    isLoadedFromDb = false;
+  }
+}
+
+final _persistence = _ChatPersistence();
+
+// ===== Page widget =====
+class AiImportPage extends ConsumerStatefulWidget {
+  const AiImportPage({super.key});
+
+  @override
+  ConsumerState<AiImportPage> createState() => _AiImportPageState();
+}
+
+class _AiImportPageState extends ConsumerState<AiImportPage> {
+  final _textController = TextEditingController();
+  final _scrollController = ScrollController();
+  final _imagePicker = ImagePicker();
+
+  // Convenience accessors into persistence
+  List<_UiMessage> get _messages => _persistence.messages;
+  List<File> get _pendingImages => _persistence.pendingImages;
+  bool get _isSending => _persistence.isSending;
+  set _isSending(bool v) => _persistence.isSending = v;
+  String? get _currentSessionId => _persistence.currentSessionId;
+  set _currentSessionId(String? v) => _persistence.currentSessionId = v;
+
+  @override
+  void initState() {
+    super.initState();
+    _persistence.onChanged = _onPersistenceChanged;
+    if (!_persistence.isLoadedFromDb) {
+      _loadCurrentSession();
+    }
+    _scrollToBottom();
+  }
+
+  @override
+  void dispose() {
+    _persistence.onChanged = null;
+    // DO NOT cancel streaming or clear state — persist across navigation
+    _textController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onPersistenceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadCurrentSession() async {
+    final sessionId = ref.read(currentChatSessionIdProvider);
+    if (sessionId != null && !_persistence.isLoadedFromDb) {
+      _persistence.isLoadedFromDb = true;
+      final dao = ref.read(chatSessionDaoProvider);
+      final dbMessages = await dao.getMessages(sessionId);
+      if (dbMessages.isNotEmpty && mounted) {
+        setState(() {
+          _currentSessionId = sessionId;
+          _messages.clear();
+          for (final m in dbMessages) {
+            List<AiParsedCourse>? courses;
+            if (m.parsedCoursesJson != null) {
+              try {
+                final agent = ref.read(aiAgentServiceProvider);
+                courses = agent?.extractCourses(m.parsedCoursesJson!);
+              } catch (_) {}
+            }
+            _messages.add(_UiMessage(
+              id: m.id,
+              role: m.role == 'user' ? ChatRole.user : ChatRole.assistant,
+              text: m.content,
+              imageFiles: ChatSessionDao.decodeImagePaths(m.imagePaths)
+                  .map((p) => File(p))
+                  .toList(),
+              parsedCourses: courses,
+            ));
+          }
+        });
+        _scrollToBottom();
+      }
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picked = await _imagePicker.pickImage(
+      source: source,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
+    if (picked != null) {
+      setState(() => _pendingImages.add(File(picked.path)));
+    }
+  }
+
+  Future<void> _pickDocument() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json', 'ics', 'xlsx', 'xls', 'csv', 'txt'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = File(result.files.single.path!);
+    final ext = result.files.single.extension?.toLowerCase() ?? '';
+
+    String content;
+    try {
+      if (ext == 'xlsx' || ext == 'xls') {
+        content = _parseExcel(file);
+      } else {
+        content = await file.readAsString();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('读取文件失败: $e')),
+        );
+      }
+      return;
+    }
+
+    final prefix = switch (ext) {
+      'json' => '以下是 JSON 格式的课程数据，请识别并整理：\n\n',
+      'ics' => '以下是 iCalendar (.ics) 格式的日历数据，请从中识别课程信息：\n\n',
+      'csv' => '以下是 CSV 格式的课程数据，请识别并整理：\n\n',
+      'xlsx' || 'xls' => '以下是从 Excel 文件提取的课程表数据，请识别并整理：\n\n',
+      _ => '以下是课程相关文件内容，请识别课程信息：\n\n',
+    };
+
+    _textController.text = '$prefix$content';
+  }
+
+  String _parseExcel(File file) {
+    final bytes = file.readAsBytesSync();
+    final excel = xl.Excel.decodeBytes(bytes);
+    final buf = StringBuffer();
+
+    for (final sheetName in excel.tables.keys) {
+      final sheet = excel.tables[sheetName]!;
+      buf.writeln('--- Sheet: $sheetName ---');
+      for (final row in sheet.rows) {
+        final cells =
+            row.map((cell) => cell?.value?.toString() ?? '').toList();
+        buf.writeln(cells.join('\t'));
+      }
+      buf.writeln();
+    }
+    return buf.toString();
+  }
+
+  void _removePendingImage(int index) {
+    setState(() => _pendingImages.removeAt(index));
+  }
+
+  Future<String> _ensureSession() async {
+    if (_currentSessionId != null) return _currentSessionId!;
+    final id = _uuid.v4();
+    final now = DateTime.now();
+    final dao = ref.read(chatSessionDaoProvider);
+    await dao.upsertSession(ChatSessionsTableCompanion.insert(
+      id: id,
+      title: '新对话',
+      createdAt: now,
+      updatedAt: now,
+    ));
+    _currentSessionId = id;
+    ref.read(currentChatSessionIdProvider.notifier).state = id;
+    return id;
+  }
+
+  Future<void> _saveMessageToDb(
+      ChatSessionDao dao, String sessionId, _UiMessage msg) async {
+    await dao.insertMessage(ChatMessagesTableCompanion.insert(
+      id: msg.id,
+      sessionId: sessionId,
+      role: msg.role == ChatRole.user ? 'user' : 'assistant',
+      content: Value(msg.text),
+      imagePaths: Value(ChatSessionDao.encodeImagePaths(
+          msg.imageFiles.map((f) => f.path).toList())),
+      parsedCoursesJson: Value(msg.parsedCourses != null
+          ? jsonEncode(msg.parsedCourses!
+              .map((c) => {
+                    'name': c.name,
+                    'location': c.location,
+                    'teacher': c.teacher,
+                    'weekday': c.weekday,
+                    'startPeriod': c.startPeriod,
+                    'endPeriod': c.endPeriod,
+                    'weekMode': c.weekMode.name,
+                    'customWeeks': c.customWeeks,
+                  })
+              .toList())
+          : null),
+      createdAt: DateTime.now(),
+    ));
+    // Update session title from first user message
+    if (_messages.where((m) => m.role == ChatRole.user).length == 1 &&
+        msg.role == ChatRole.user &&
+        msg.text != null) {
+      final title = msg.text!.length > 20
+          ? '${msg.text!.substring(0, 20)}...'
+          : msg.text!;
+      await dao.upsertSession(ChatSessionsTableCompanion(
+        id: Value(sessionId),
+        title: Value(title),
+        createdAt: Value(DateTime.now()),
+        updatedAt: Value(DateTime.now()),
+      ));
+    }
+  }
+
+  void _cancelSending() {
+    _persistence.streamSub?.cancel();
+    _persistence.streamSub = null;
+    final agent = ref.read(aiAgentServiceProvider);
+    agent?.cancel();
+    setState(() {
+      if (_messages.isNotEmpty) {
+        final last = _messages.last;
+        if (last.isStreaming && (last.text ?? '').isEmpty) {
+          _messages.removeLast();
+        } else if (last.isStreaming) {
+          last.isStreaming = false;
+        }
+      }
+      _isSending = false;
+    });
+  }
+
+  Future<void> _send() async {
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent == null) {
+      final isLoading = ref.read(aiConfigProvider).isLoading;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isLoading ? '配置加载中，请稍后再试' : '请先在设置中配置 AI API'),
+        ),
+      );
+      return;
+    }
+
+    final text = _textController.text.trim();
+    final images = List<File>.from(_pendingImages);
+    if (text.isEmpty && images.isEmpty) return;
+
+    // Build ChatImage list
+    final chatImages = <ChatImage>[];
+    for (final file in images) {
+      final bytes = await file.readAsBytes();
+      final ext = file.path.split('.').last.toLowerCase();
+      final mime = switch (ext) {
+        'png' => 'image/png',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        _ => 'image/jpeg',
+      };
+      chatImages.add(ChatImage(
+        base64Data: base64Encode(bytes),
+        mimeType: mime,
+      ));
+    }
+
+    final sessionId = await _ensureSession();
+
+    final userMsg = _UiMessage(
+      role: ChatRole.user,
+      text: text.isNotEmpty ? text : null,
+      imageFiles: images,
+    );
+
+    final assistantMsg = _UiMessage(
+      role: ChatRole.assistant,
+      text: '',
+      isStreaming: true,
+    );
+
+    setState(() {
+      _messages.add(userMsg);
+      _messages.add(assistantMsg);
+      _textController.clear();
+      _pendingImages.clear();
+      _isSending = true;
+    });
+    _scrollToBottom();
+
+    // Capture refs for use in background callbacks
+    final dao = ref.read(chatSessionDaoProvider);
+    final repo = ref.read(courseRepositoryProvider);
+
+    await _saveMessageToDb(dao, sessionId, userMsg);
+
+    try {
+      final config = ref.read(periodConfigProvider).valueOrNull;
+      String? extraPrompt;
+      if (config?.presetId != null) {
+        final preset =
+            kSchoolPresets.where((p) => p.id == config!.presetId).firstOrNull;
+        extraPrompt = preset?.aiPromptHint;
+      }
+
+      _startStreaming(
+        agent: agent,
+        assistantMsg: assistantMsg,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+        text: text.isNotEmpty ? text : '请识别这张图片中的课程表信息',
+        images: chatImages,
+        extraPrompt: _messages.length <= 2 ? extraPrompt : null,
+      );
+    } catch (e) {
+      final isCancelled = e.toString().contains('Client is closed') ||
+          e.toString().contains('Connection closed');
+      if (mounted) {
+        if (isCancelled) {
+          setState(() {
+            if (_messages.isNotEmpty && _messages.last.isStreaming) {
+              _messages.removeLast();
+            }
+            _isSending = false;
+          });
+        } else {
+          final errMsg = _UiMessage(role: ChatRole.assistant, text: '出错了: $e');
+          setState(() {
+            _messages.removeLast();
+            _messages.add(errMsg);
+            _isSending = false;
+          });
+          _scrollToBottom();
+          await _saveMessageToDb(dao, sessionId, errMsg);
+        }
+      }
+    }
+  }
+
+  /// Start SSE streaming. Callbacks update _persistence directly and survive
+  /// widget unmount.
+  void _startStreaming({
+    required AiAgentService agent,
+    required _UiMessage assistantMsg,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+    String? text,
+    List<ChatImage> images = const [],
+    String? extraPrompt,
+  }) {
+    final Stream<ChatStreamDelta> stream;
+    if (text != null) {
+      stream = agent.sendStreaming(
+        text: text,
+        images: images,
+        extraPrompt: extraPrompt,
+      );
+    } else {
+      // Continue after tool result (no user text)
+      stream = agent.sendStreaming();
+    }
+
+    _persistence.streamSub?.cancel();
+    _persistence.streamSub = stream.listen(
+      (delta) {
+        if (delta.textDelta != null) {
+          assistantMsg.text = (assistantMsg.text ?? '') + delta.textDelta!;
+        }
+        if (delta.toolCallDeltas != null) {
+          assistantMsg.toolCalls = delta.toolCallDeltas;
+        }
+        if (delta.isDone) {
+          assistantMsg.isStreaming = false;
+          _isSending = false;
+          if (assistantMsg.toolCalls != null) {
+            _handleToolCalls(
+              msg: assistantMsg,
+              agent: agent,
+              sessionId: sessionId,
+              dao: dao,
+              repo: repo,
+            );
+          } else {
+            // Fallback: extract from text (models without tool support)
+            final fullText = assistantMsg.text ?? '';
+            if (fullText.isNotEmpty) {
+              final courses = agent.extractCourses(fullText);
+              if (courses.isNotEmpty) {
+                assistantMsg.parsedCourses = courses;
+                assistantMsg.toolCallStatus = _ToolCallStatus.pending;
+              }
+            }
+          }
+        }
+        _persistence.notify();
+        if (mounted) _scrollToBottom();
+      },
+      onError: (e) {
+        final isCancelled = e.toString().contains('Client is closed') ||
+            e.toString().contains('Connection closed');
+        if (isCancelled) {
+          assistantMsg.isStreaming = false;
+          if ((assistantMsg.text ?? '').isEmpty) {
+            _messages.remove(assistantMsg);
+          }
+        } else {
+          assistantMsg.text = '出错了: $e';
+          assistantMsg.isStreaming = false;
+        }
+        _isSending = false;
+        _persistence.notify();
+      },
+      onDone: () async {
+        _persistence.streamSub = null;
+        if (!assistantMsg.isStreaming) {
+          await _saveMessageToDb(dao, sessionId, assistantMsg);
+        }
+      },
+    );
+  }
+
+  /// Dispatch tool calls to appropriate handlers.
+  Future<void> _handleToolCalls({
+    required _UiMessage msg,
+    required AiAgentService agent,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+  }) async {
+    for (final tc in msg.toolCalls!) {
+      switch (tc.name) {
+        case 'import_courses':
+          final courses = agent.parseCoursesFromToolCall(tc.arguments);
+          if (courses.isNotEmpty) {
+            msg.parsedCourses = courses;
+            msg.toolCallStatus = _ToolCallStatus.pending;
+          }
+        case 'query_courses':
+          await _executeQueryCourses(
+            msg: msg,
+            tc: tc,
+            agent: agent,
+            sessionId: sessionId,
+            dao: dao,
+            repo: repo,
+          );
+        case 'update_course':
+          await _prepareUpdateCourse(msg, tc, repo);
+        case 'delete_courses':
+          await _prepareDeleteCourses(msg, tc, repo);
+      }
+    }
+    _persistence.notify();
+  }
+
+  /// Auto-execute query_courses.
+  Future<void> _executeQueryCourses({
+    required _UiMessage msg,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+  }) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final nameFilter = args['name'] as String?;
+      final weekdayFilter = args['weekday'] as int?;
+
+      final allCourses = await repo.watchAll().first;
+
+      var filtered = allCourses;
+      if (nameFilter != null && nameFilter.isNotEmpty) {
+        filtered = filtered
+            .where(
+                (c) => c.name.toLowerCase().contains(nameFilter.toLowerCase()))
+            .toList();
+      }
+      if (weekdayFilter != null) {
+        filtered = filtered.where((c) => c.weekday == weekdayFilter).toList();
+      }
+
+      final resultJson = jsonEncode(filtered
+          .map((c) => {
+                'id': c.id,
+                'name': c.name,
+                'location': c.location,
+                'teacher': c.teacher,
+                'weekday': c.weekday,
+                'startPeriod': c.startPeriod,
+                'endPeriod': c.endPeriod,
+                'weekMode': c.weekMode.name,
+                'customWeeks': c.customWeeks,
+              })
+          .toList());
+
+      agent.addToolResult(
+          tc.id, '查询到 ${filtered.length} 门课程：$resultJson');
+      msg.toolCallStatus = _ToolCallStatus.confirmed;
+      _persistence.notify();
+
+      // Continue conversation
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    } catch (e) {
+      agent.addToolResult(tc.id, '查询失败: $e');
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: sessionId,
+        dao: dao,
+        repo: repo,
+      );
+    }
+  }
+
+  /// Prepare update_course for user confirmation.
+  Future<void> _prepareUpdateCourse(
+      _UiMessage msg, ChatToolCall tc, CourseRepository repo) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final courseId = args['courseId'] as String;
+      final course = await repo.findById(courseId);
+
+      if (course == null) {
+        final agent = ref.read(aiAgentServiceProvider);
+        agent?.addToolResult(tc.id, '未找到 ID 为 $courseId 的课程');
+        return;
+      }
+
+      final updateFields = Map<String, dynamic>.from(args)..remove('courseId');
+      msg.updateOriginalCourse = course;
+      msg.updateFields = updateFields;
+      msg.toolCallStatus = _ToolCallStatus.pending;
+    } catch (e) {
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析更新参数失败: $e');
+    }
+  }
+
+  /// Prepare delete_courses for user confirmation.
+  Future<void> _prepareDeleteCourses(
+      _UiMessage msg, ChatToolCall tc, CourseRepository repo) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final courseIds = (args['courseIds'] as List<dynamic>)
+          .map((e) => e as String)
+          .toList();
+
+      final courses = <Course>[];
+      for (final id in courseIds) {
+        final course = await repo.findById(id);
+        if (course != null) courses.add(course);
+      }
+
+      if (courses.isEmpty) {
+        final agent = ref.read(aiAgentServiceProvider);
+        agent?.addToolResult(tc.id, '未找到要删除的课程');
+        return;
+      }
+
+      msg.deleteCourses = courses;
+      msg.toolCallStatus = _ToolCallStatus.pending;
+    } catch (e) {
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析删除参数失败: $e');
+    }
+  }
+
+  Future<void> _confirmImport(_UiMessage msg) async {
+    final courses = msg.parsedCourses;
+    if (courses == null || courses.isEmpty) return;
+
+    final repo = ref.read(courseRepositoryProvider);
+    final now = DateTime.now();
+    final semesterId = ref.read(activeSemesterIdProvider).valueOrNull;
+
+    for (final parsed in courses) {
+      await repo.save(Course(
+        id: _uuid.v4(),
+        name: parsed.name,
+        location: parsed.location,
+        teacher: parsed.teacher,
+        weekday: parsed.weekday,
+        startPeriod: parsed.startPeriod,
+        endPeriod: parsed.endPeriod,
+        weekMode: parsed.weekMode,
+        customWeeks: parsed.customWeeks,
+        semesterId: semesterId,
+        createdAt: now,
+        updatedAt: now,
+      ));
+    }
+
+    ref.invalidate(watchCoursesProvider);
+    ref.read(widgetServiceProvider).updateWidgets();
+
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'import_courses') {
+          agent.addToolResult(tc.id, '已成功导入 ${courses.length} 门课程。');
+        }
+      }
+    }
+
+    setState(() => msg.toolCallStatus = _ToolCallStatus.confirmed);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已导入 ${courses.length} 门课程')),
+      );
+    }
+  }
+
+  void _rejectImport(_UiMessage msg) {
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'import_courses') {
+          agent.addToolResult(tc.id, '用户拒绝了导入操作。');
+        }
+      }
+    }
+    setState(() => msg.toolCallStatus = _ToolCallStatus.rejected);
+  }
+
+  Future<void> _confirmUpdate(_UiMessage msg) async {
+    final course = msg.updateOriginalCourse;
+    final fields = msg.updateFields;
+    if (course == null || fields == null) return;
+
+    final updated = Course(
+      id: course.id,
+      name: (fields['name'] as String?) ?? course.name,
+      location: (fields['location'] as String?) ?? course.location,
+      teacher: (fields['teacher'] as String?) ?? course.teacher,
+      weekday: (fields['weekday'] as int?) ?? course.weekday,
+      startPeriod: (fields['startPeriod'] as int?) ?? course.startPeriod,
+      endPeriod: (fields['endPeriod'] as int?) ?? course.endPeriod,
+      weekMode: fields['weekMode'] != null
+          ? _parseWeekMode(fields['weekMode'] as String)
+          : course.weekMode,
+      customWeeks: fields['customWeeks'] != null
+          ? (fields['customWeeks'] as List<dynamic>)
+              .map((e) => e as int)
+              .toList()
+          : course.customWeeks,
+      createdAt: course.createdAt,
+      updatedAt: DateTime.now(),
+    );
+
+    final repo = ref.read(courseRepositoryProvider);
+    await repo.save(updated);
+    ref.invalidate(watchCoursesProvider);
+    ref.read(widgetServiceProvider).updateWidgets();
+
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'update_course') {
+          agent.addToolResult(tc.id, '已成功修改课程「${updated.name}」。');
+        }
+      }
+    }
+
+    setState(() => msg.toolCallStatus = _ToolCallStatus.confirmed);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已修改课程「${updated.name}」')),
+      );
+    }
+
+    if (agent != null) {
+      final dao = ref.read(chatSessionDaoProvider);
+      final repoRef = ref.read(courseRepositoryProvider);
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: _currentSessionId ?? await _ensureSession(),
+        dao: dao,
+        repo: repoRef,
+      );
+    }
+  }
+
+  void _rejectUpdate(_UiMessage msg) {
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'update_course') {
+          agent.addToolResult(tc.id, '用户拒绝了修改操作。');
+        }
+      }
+    }
+    setState(() => msg.toolCallStatus = _ToolCallStatus.rejected);
+  }
+
+  Future<void> _confirmDelete(_UiMessage msg) async {
+    final courses = msg.deleteCourses;
+    if (courses == null || courses.isEmpty) return;
+
+    final repo = ref.read(courseRepositoryProvider);
+    for (final c in courses) {
+      await repo.delete(c.id);
+    }
+    ref.invalidate(watchCoursesProvider);
+    ref.read(widgetServiceProvider).updateWidgets();
+
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'delete_courses') {
+          final names = courses.map((c) => '「${c.name}」').join('、');
+          agent.addToolResult(
+              tc.id, '已成功删除 ${courses.length} 门课程：$names。');
+        }
+      }
+    }
+
+    setState(() => msg.toolCallStatus = _ToolCallStatus.confirmed);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已删除 ${courses.length} 门课程')),
+      );
+    }
+
+    if (agent != null) {
+      final dao = ref.read(chatSessionDaoProvider);
+      final repoRef = ref.read(courseRepositoryProvider);
+      _continueAfterToolResult(
+        agent: agent,
+        sessionId: _currentSessionId ?? await _ensureSession(),
+        dao: dao,
+        repo: repoRef,
+      );
+    }
+  }
+
+  void _rejectDelete(_UiMessage msg) {
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.name == 'delete_courses') {
+          agent.addToolResult(tc.id, '用户拒绝了删除操作。');
+        }
+      }
+    }
+    setState(() => msg.toolCallStatus = _ToolCallStatus.rejected);
+  }
+
+  /// Continue conversation after a tool result.
+  void _continueAfterToolResult({
+    required AiAgentService agent,
+    required String sessionId,
+    required ChatSessionDao dao,
+    required CourseRepository repo,
+  }) {
+    final assistantMsg = _UiMessage(
+      role: ChatRole.assistant,
+      text: '',
+      isStreaming: true,
+    );
+
+    _messages.add(assistantMsg);
+    _isSending = true;
+    _persistence.notify();
+    if (mounted) _scrollToBottom();
+
+    _startStreaming(
+      agent: agent,
+      assistantMsg: assistantMsg,
+      sessionId: sessionId,
+      dao: dao,
+      repo: repo,
+    );
+  }
+
+  WeekMode _parseWeekMode(String value) => switch (value) {
+        'odd' => WeekMode.odd,
+        'even' => WeekMode.even,
+        'custom' => WeekMode.custom,
+        _ => WeekMode.every,
+      };
+
+  void _startNewConversation() {
+    _persistence.streamSub?.cancel();
+    _persistence.streamSub = null;
+    ref.read(aiAgentServiceProvider)?.clearHistory();
+    ref.read(currentChatSessionIdProvider.notifier).state = null;
+    setState(() {
+      _messages.clear();
+      _currentSessionId = null;
+      _persistence.isLoadedFromDb = false;
+      _isSending = false;
+    });
+  }
+
+  void _showHistory() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Consumer(
+          builder: (context, ref, _) {
+            final sessionsAsync = ref.watch(chatSessionsProvider);
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('对话历史',
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                Expanded(
+                  child: sessionsAsync.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('错误: $e')),
+                    data: (sessions) {
+                      if (sessions.isEmpty) {
+                        return const Center(child: Text('暂无历史记录'));
+                      }
+                      return ListView.builder(
+                        controller: scrollController,
+                        itemCount: sessions.length,
+                        itemBuilder: (_, i) {
+                          final s = sessions[i];
+                          final isActive = s.id == _currentSessionId;
+                          return ListTile(
+                            leading: Icon(
+                              isActive
+                                  ? Icons.chat_bubble
+                                  : Icons.chat_bubble_outline,
+                              color: isActive
+                                  ? Theme.of(context).colorScheme.primary
+                                  : null,
+                            ),
+                            title: Text(
+                              s.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              _formatDate(s.updatedAt),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 20),
+                              onPressed: () async {
+                                final dao = ref.read(chatSessionDaoProvider);
+                                await dao.deleteSession(s.id);
+                                if (s.id == _currentSessionId) {
+                                  _startNewConversation();
+                                }
+                              },
+                            ),
+                            onTap: () {
+                              Navigator.pop(context);
+                              _loadSession(s.id);
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadSession(String sessionId) async {
+    ref.read(aiAgentServiceProvider)?.clearHistory();
+    ref.read(currentChatSessionIdProvider.notifier).state = sessionId;
+
+    final dao = ref.read(chatSessionDaoProvider);
+    final dbMessages = await dao.getMessages(sessionId);
+
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null) {
+      final historyMaps = <Map<String, dynamic>>[];
+      for (final m in dbMessages) {
+        if (m.role == 'user') {
+          historyMaps.add({'role': 'user', 'content': m.content ?? ''});
+        } else if (m.role == 'assistant') {
+          historyMaps.add({'role': 'assistant', 'content': m.content ?? ''});
+        }
+      }
+      agent.restoreHistory(historyMaps);
+    }
+
+    if (mounted) {
+      setState(() {
+        _currentSessionId = sessionId;
+        _messages.clear();
+        for (final m in dbMessages) {
+          List<AiParsedCourse>? courses;
+          if (m.parsedCoursesJson != null) {
+            try {
+              courses = agent?.extractCourses(m.parsedCoursesJson!);
+            } catch (_) {}
+          }
+          _messages.add(_UiMessage(
+            id: m.id,
+            role: m.role == 'user' ? ChatRole.user : ChatRole.assistant,
+            text: m.content,
+            imageFiles: ChatSessionDao.decodeImagePaths(m.imagePaths)
+                .map((p) => File(p))
+                .toList(),
+            parsedCourses: courses,
+          ));
+        }
+      });
+      _scrollToBottom();
+    }
+  }
+
+  String _formatDate(DateTime dt) {
+    final now = DateTime.now();
+    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+      return '今天 ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+    return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  static const _weekdayNames = [
+    '',
+    '周一',
+    '周二',
+    '周三',
+    '周四',
+    '周五',
+    '周六',
+    '周日'
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enterToSend = ref.watch(enterToSendProvider).valueOrNull ?? false;
+    // Eagerly watch so aiConfigProvider's future starts resolving immediately
+    final agentReady = ref.watch(aiAgentServiceProvider) != null;
+    final configLoading = ref.watch(aiConfigProvider).isLoading;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('AI 助手'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '对话历史',
+            onPressed: _showHistory,
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              switch (value) {
+                case 'new':
+                  _startNewConversation();
+                case 'clear':
+                  ref.read(aiAgentServiceProvider)?.clearHistory();
+                  setState(() => _messages.clear());
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'new',
+                child: ListTile(
+                  leading: Icon(Icons.add),
+                  title: Text('新建对话'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'clear',
+                child: ListTile(
+                  leading: Icon(Icons.delete_sweep),
+                  title: Text('清空当前对话'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: _messages.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome,
+                              size: 48, color: theme.colorScheme.primary),
+                          const SizedBox(height: 16),
+                          Text('AI 课程助手',
+                              style: theme.textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          Text(
+                            '发送课表文本、拍照或导入文件，AI 帮你自动识别课程\n'
+                            '也可以让 AI 查询、修改、删除课程',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _messages.length,
+                    itemBuilder: (_, i) => _buildMessage(_messages[i]),
+                  ),
+          ),
+          if (!agentReady && _messages.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                configLoading ? '正在加载 AI 配置...' : '请先在设置中配置 AI API',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.error),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          if (_pendingImages.isNotEmpty)
+            SizedBox(
+              height: 80,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _pendingImages.length,
+                itemBuilder: (_, i) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(_pendingImages[i],
+                            width: 70, height: 70, fit: BoxFit.cover),
+                      ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () => _removePendingImage(i),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            child: const Icon(Icons.close,
+                                size: 14, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          // Input bar
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, -1),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.photo_library),
+                    tooltip: '选择图片',
+                    onPressed: _isSending
+                        ? null
+                        : () => _pickImage(ImageSource.gallery),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.camera_alt),
+                    tooltip: '拍照',
+                    onPressed: _isSending
+                        ? null
+                        : () => _pickImage(ImageSource.camera),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.attach_file),
+                    tooltip: '导入文件',
+                    onPressed: _isSending ? null : _pickDocument,
+                  ),
+                  Expanded(
+                    child: KeyboardListener(
+                      focusNode: FocusNode(),
+                      onKeyEvent: enterToSend
+                          ? (event) {
+                              if (event is KeyDownEvent &&
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.enter &&
+                                  !HardwareKeyboard.instance.isShiftPressed) {
+                                _send();
+                              }
+                            }
+                          : null,
+                      child: TextField(
+                        controller: _textController,
+                        decoration: InputDecoration(
+                          hintText: enterToSend
+                              ? '输入消息，Enter 发送...'
+                              : '输入文本或发送图片...',
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                        ),
+                        maxLines: 4,
+                        minLines: 1,
+                        textInputAction: enterToSend
+                            ? TextInputAction.send
+                            : TextInputAction.newline,
+                        onSubmitted: enterToSend ? (_) => _send() : null,
+                      ),
+                    ),
+                  ),
+                  if (_isSending)
+                    IconButton(
+                      icon: const Icon(Icons.stop_circle),
+                      tooltip: '停止生成',
+                      color: theme.colorScheme.error,
+                      onPressed: _cancelSending,
+                    )
+                  else
+                    IconButton(
+                      icon: const Icon(Icons.send),
+                      onPressed: _send,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessage(_UiMessage msg) {
+    final isUser = msg.role == ChatRole.user;
+    final theme = Theme.of(context);
+
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+        child: Column(
+          crossAxisAlignment:
+              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            if (msg.imageFiles.isNotEmpty)
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: msg.imageFiles
+                    .map((f) => ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(f,
+                              width: 150,
+                              height: 150,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                    width: 150,
+                                    height: 150,
+                                    color: theme
+                                        .colorScheme.surfaceContainerHighest,
+                                    child: const Icon(Icons.broken_image),
+                                  )),
+                        ))
+                    .toList(),
+              ),
+            // Tool call indicator
+            if (msg.toolCalls != null && msg.toolCalls!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: msg.toolCalls!
+                      .map((tc) => _buildToolCallChip(tc, msg, theme))
+                      .toList(),
+                ),
+              ),
+            if (msg.text != null && msg.text!.isNotEmpty)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isUser
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: SelectableText(
+                        msg.text!,
+                        style: TextStyle(
+                          color: isUser
+                              ? theme.colorScheme.onPrimary
+                              : theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (msg.isStreaming) ...[
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 8,
+                        height: 8,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            // Show streaming indicator for empty text
+            if ((msg.text == null || msg.text!.isEmpty) && msg.isStreaming)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            if (msg.parsedCourses != null && msg.parsedCourses!.isNotEmpty)
+              _buildCourseConfirmCard(msg, theme),
+            if (msg.updateOriginalCourse != null)
+              _buildUpdateConfirmCard(msg, theme),
+            if (msg.deleteCourses != null && msg.deleteCourses!.isNotEmpty)
+              _buildDeleteConfirmCard(msg, theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolCallChip(
+      ChatToolCall tc, _UiMessage msg, ThemeData theme) {
+    final status = msg.toolCallStatus;
+    final Color bgColor;
+    final Color fgColor;
+    final IconData icon;
+    final String label;
+
+    final friendlyName = switch (tc.name) {
+      'import_courses' => '导入课程',
+      'query_courses' => '查询课程',
+      'update_course' => '修改课程',
+      'delete_courses' => '删除课程',
+      _ => tc.name,
+    };
+
+    if (status == _ToolCallStatus.confirmed) {
+      bgColor = theme.colorScheme.primaryContainer;
+      fgColor = theme.colorScheme.onPrimaryContainer;
+      icon = Icons.check_circle;
+      label = '$friendlyName (已确认)';
+    } else if (status == _ToolCallStatus.rejected) {
+      bgColor = theme.colorScheme.errorContainer;
+      fgColor = theme.colorScheme.onErrorContainer;
+      icon = Icons.cancel;
+      label = '$friendlyName (已拒绝)';
+    } else {
+      bgColor = theme.colorScheme.tertiaryContainer;
+      fgColor = theme.colorScheme.onTertiaryContainer;
+      icon = Icons.build;
+      label = friendlyName;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fgColor),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: fgColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCourseConfirmCard(_UiMessage msg, ThemeData theme) {
+    final status = msg.toolCallStatus;
+    final courses = msg.parsedCourses!;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : Icons.school,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : status == _ToolCallStatus.rejected
+                            ? theme.colorScheme.error
+                            : null,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '已导入 ${courses.length} 门课程'
+                        : status == _ToolCallStatus.rejected
+                            ? '已拒绝导入'
+                            : '识别到 ${courses.length} 门课程',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ...courses.map((c) => Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 2),
+                    child: Text(
+                      '${c.name} · ${_weekdayNames[c.weekday]} '
+                      '第${c.startPeriod}-${c.endPeriod}节'
+                      '${c.location != null ? ' · ${c.location}' : ''}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  )),
+              if (status == null || status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _confirmImport(msg),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('确认导入'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _rejectImport(msg),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpdateConfirmCard(_UiMessage msg, ThemeData theme) {
+    final status = msg.toolCallStatus;
+    final course = msg.updateOriginalCourse!;
+    final fields = msg.updateFields ?? {};
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : Icons.edit,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : status == _ToolCallStatus.rejected
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.tertiary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '已修改课程「${course.name}」'
+                        : status == _ToolCallStatus.rejected
+                            ? '已拒绝修改'
+                            : '修改课程「${course.name}」',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              for (final entry in fields.entries)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 2),
+                  child: Text(
+                    '${_fieldLabel(entry.key)}: ${_fieldOldValue(course, entry.key)} → ${entry.value}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+              if (status == null || status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _confirmUpdate(msg),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('确认修改'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _rejectUpdate(msg),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteConfirmCard(_UiMessage msg, ThemeData theme) {
+    final status = msg.toolCallStatus;
+    final courses = msg.deleteCourses!;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        color: status == _ToolCallStatus.pending
+            ? theme.colorScheme.errorContainer.withValues(alpha: 0.3)
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : Icons.delete_forever,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.error,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '已删除 ${courses.length} 门课程'
+                        : status == _ToolCallStatus.rejected
+                            ? '已拒绝删除'
+                            : '删除 ${courses.length} 门课程',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              for (final c in courses)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 2),
+                  child: Text(
+                    '${c.name} · ${_weekdayNames[c.weekday]} '
+                    '第${c.startPeriod}-${c.endPeriod}节'
+                    '${c.location != null ? ' · ${c.location}' : ''}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+              if (status == null || status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _confirmDelete(msg),
+                      icon: const Icon(Icons.delete, size: 16),
+                      label: const Text('确认删除'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.colorScheme.error,
+                        foregroundColor: theme.colorScheme.onError,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _rejectDelete(msg),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _fieldLabel(String key) => switch (key) {
+        'name' => '课程名',
+        'location' => '地点',
+        'teacher' => '教师',
+        'weekday' => '星期',
+        'startPeriod' => '开始节次',
+        'endPeriod' => '结束节次',
+        'weekMode' => '周模式',
+        'customWeeks' => '自定义周次',
+        _ => key,
+      };
+
+  String _fieldOldValue(Course course, String key) => switch (key) {
+        'name' => course.name,
+        'location' => course.location ?? '无',
+        'teacher' => course.teacher ?? '无',
+        'weekday' => _weekdayNames[course.weekday],
+        'startPeriod' => '${course.startPeriod}',
+        'endPeriod' => '${course.endPeriod}',
+        'weekMode' => course.weekMode.name,
+        'customWeeks' => course.customWeeks.toString(),
+        _ => '?',
+      };
+}

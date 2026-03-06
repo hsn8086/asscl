@@ -1,0 +1,4 @@
+enum ViewType {
+  weekGrid,
+  timeStream,
+}

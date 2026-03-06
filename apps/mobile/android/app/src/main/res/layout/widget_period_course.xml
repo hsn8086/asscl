@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/period_course_root"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:paddingStart="2dp"
+    android:paddingEnd="2dp"
+    android:paddingTop="1dp"
+    android:paddingBottom="1dp"
+    android:layout_marginTop="1dp">
+
+    <TextView
+        android:id="@+id/period_course_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="9sp"
+        android:textColor="#FFFFFFFF"
+        android:textStyle="bold"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:gravity="center" />
+
+    <TextView
+        android:id="@+id/period_course_location"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="8sp"
+        android:textColor="#CCFFFFFF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:layout_marginTop="1dp" />
+</LinearLayout>

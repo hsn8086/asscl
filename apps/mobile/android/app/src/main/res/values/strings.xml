@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_next_class_desc">显示下一节课的名称、时间和地点</string>
+    <string name="widget_today_schedule_desc">显示本周课程安排</string>
+    <string name="widget_next_class_label">下一节课</string>
+    <string name="widget_today_schedule_label">本周课程</string>
+</resources>

@@ -1,0 +1,55 @@
+name: asscl
+description: Student timetable & task management app.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # local packages
+  domain:
+    path: ../../packages/domain
+  data:
+    path: ../../packages/data
+  presentation:
+    path: ../../packages/presentation
+
+  # navigation
+  go_router: ^14.8.1
+
+  # state management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # local notifications
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
+
+  # utilities
+  intl: ^0.20.2
+  uuid: ^4.5.1
+  image_picker: ^1.1.2
+  file_picker: ^8.0.0
+  excel: ^4.0.6
+  drift: ^2.24.0
+
+  # home screen widget
+  home_widget: ^0.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  riverpod_generator: ^2.6.4
+  build_runner: ^2.4.15
+  mockito: ^5.4.6
+  custom_lint: ^0.7.5
+  riverpod_lint: ^2.6.4
+
+flutter:
+  uses-material-design: true
