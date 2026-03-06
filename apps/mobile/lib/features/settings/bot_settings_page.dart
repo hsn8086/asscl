@@ -122,133 +122,162 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
   @override
   Widget build(BuildContext context) {
     _loadSettings();
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Bot 集成')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // --- Platform hint ---
-          Text('Telegram Bot', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 4),
+          // ── Telegram ──
+          _sectionHeader(theme, 'Telegram'),
           Text(
             '配置 Telegram Bot 后可将提醒转发到 Telegram，并通过 Bot 使用 AI 助手。',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // --- Master switch ---
-          SwitchListTile(
-            title: const Text('启用 Telegram Bot'),
-            value: _enabled,
-            onChanged: _toggleEnabled,
-            contentPadding: EdgeInsets.zero,
+          // Master switch
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: SwitchListTile(
+              secondary: const Icon(Icons.telegram),
+              title: const Text('启用 Telegram Bot'),
+              value: _enabled,
+              onChanged: _toggleEnabled,
+            ),
           ),
 
           if (_enabled) ...[
             const SizedBox(height: 12),
 
-            // --- Token ---
-            TextFormField(
-              controller: _tokenController,
-              decoration: const InputDecoration(
-                labelText: 'Bot Token',
-                hintText: '123456:ABC-DEF...',
-                border: OutlineInputBorder(),
+            // Connection card
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: _tokenController,
+                      decoration: const InputDecoration(
+                        labelText: 'Bot Token',
+                        hintText: '123456:ABC-DEF...',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.vpn_key),
+                      ),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _chatIdController,
+                      decoration: const InputDecoration(
+                        labelText: 'Chat ID',
+                        hintText: '你的 Telegram 数字 ID',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
+                        helperText: '向 @userinfobot 发消息获取 Chat ID',
+                        helperMaxLines: 2,
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: _testing ? null : _testConnection,
+                          icon: _testing
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Icon(Icons.wifi_tethering, size: 18),
+                          label: const Text('测试连接'),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton.icon(
+                          onPressed: _save,
+                          icon: const Icon(Icons.save, size: 18),
+                          label: const Text('保存'),
+                        ),
+                      ],
+                    ),
+                    if (_testResult != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _testResult!,
+                        style: TextStyle(
+                          color: _testResult!.startsWith('连接成功')
+                              ? Colors.green
+                              : theme.colorScheme.error,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              obscureText: true,
             ),
+
             const SizedBox(height: 12),
 
-            // --- Test connection ---
-            Row(
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: _testing ? null : _testConnection,
-                  icon: _testing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.wifi_tethering),
-                  label: const Text('测试连接'),
-                ),
-                if (_testResult != null) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _testResult!,
-                      style: TextStyle(
-                        color: _testResult!.startsWith('连接成功')
-                            ? Colors.green
-                            : Colors.red,
-                        fontSize: 13,
-                      ),
-                    ),
+            // Feature toggles
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.notifications_active),
+                    title: const Text('提醒转发'),
+                    subtitle: const Text('创建提醒时同步推送到 Telegram'),
+                    value: _notifyEnabled,
+                    onChanged: _toggleNotify,
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.psychology),
+                    title: const Text('AI 助手'),
+                    subtitle: const Text('通过 Bot 对话，流式输出'),
+                    value: _agentEnabled,
+                    onChanged: _toggleAgent,
                   ),
                 ],
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // --- Chat ID ---
-            TextFormField(
-              controller: _chatIdController,
-              decoration: const InputDecoration(
-                labelText: 'Chat ID',
-                hintText: '你的 Telegram 数字 ID',
-                border: OutlineInputBorder(),
-                helperText: '向 @userinfobot 发送任意消息可获取你的 Chat ID',
-                helperMaxLines: 2,
               ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-
-            // --- Feature toggles ---
-            SwitchListTile(
-              title: const Text('提醒转发'),
-              subtitle: const Text('创建提醒时同步推送到 Telegram'),
-              value: _notifyEnabled,
-              onChanged: _toggleNotify,
-              contentPadding: EdgeInsets.zero,
-            ),
-            SwitchListTile(
-              title: const Text('AI 助手'),
-              subtitle: const Text('通过 Telegram Bot 与 AI 助手对话（流式输出）'),
-              value: _agentEnabled,
-              onChanged: _toggleAgent,
-              contentPadding: EdgeInsets.zero,
-            ),
-
-            const SizedBox(height: 16),
-
-            // --- Save ---
-            FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.save),
-              label: const Text('保存配置'),
             ),
           ],
 
-          const SizedBox(height: 32),
-
-          // --- Future platforms placeholder ---
-          Text(
-            '更多平台',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
+          // ── 更多平台 ──
+          _sectionHeader(theme, '更多平台'),
           Card(
+            clipBehavior: Clip.antiAlias,
             child: ListTile(
-              leading: const Icon(Icons.more_horiz),
+              leading: Icon(Icons.more_horiz,
+                  color: theme.colorScheme.onSurfaceVariant),
               title: const Text('敬请期待'),
-              subtitle: const Text('Discord、微信等平台支持将在后续版本中添加'),
+              subtitle: const Text('Discord、微信等平台将在后续版本中添加'),
               enabled: false,
             ),
           ),
+
+          const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader(ThemeData theme, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+      child: Text(
+        title,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.primary,
+        ),
       ),
     );
   }
