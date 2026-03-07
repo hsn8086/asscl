@@ -281,7 +281,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
               leading: Icon(Icons.more_horiz,
                   color: theme.colorScheme.onSurfaceVariant),
               title: const Text('敬请期待'),
-              subtitle: const Text('Discord、微信等平台将在后续版本中添加'),
+              subtitle: const Text('更多平台支持正在规划中'),
               enabled: false,
             ),
           ),
