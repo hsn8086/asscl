@@ -38,6 +38,7 @@ asscl/
 │       │   │   ├── semester_providers.dart       # 学期 + 当前周计算
 │       │   │   ├── shortened_names_provider.dart # AI 缩短课名（持久化缓存）
 │       │   │   ├── bot_providers.dart            # Telegram Bot 配置 + 前台服务
+│       │   │   ├── voice_providers.dart          # 语音输入配置 + STT 服务
 │       │   │   └── proxy_providers.dart          # HTTP 代理配置 + 客户端注入
 │       │   ├── services/
 │       │   │   ├── widget_service.dart    # 桌面组件数据同步服务
@@ -62,7 +63,7 @@ asscl/
 │       │       │   └── reminder_form_page.dart
 │       │       └── settings/          # 设置
 │       │           ├── settings_page.dart         # 主设置（导航入口 + 开关）
-│       │           ├── ai_config_page.dart        # AI API 配置
+│       │           ├── ai_config_page.dart        # AI API 配置 + 语音输入设置
 │       │           ├── period_config_page.dart    # 节次时间配置
 │       │           ├── semester_manage_page.dart   # 学期管理
 │       │           ├── bot_settings_page.dart      # Bot 集成设置（Telegram）
@@ -92,7 +93,7 @@ asscl/
 │   │       ├── data/                  # 静态数据（school_presets.dart）
 │   │       ├── repositories/          # 仓库抽象接口（含 SemesterRepository）
 │   │       ├── services/              # NotificationService, AiImportService, AiAgentService,
-│   │       │                          # BotPlatformService, WeatherService 接口
+│   │       │                          # BotPlatformService, WeatherService, SttService 接口
 │   │       └── usecases/              # 用例（course/, task/, reminder/）
 │   ├── data/                          # 数据层
 │   │   └── lib/src/
@@ -105,7 +106,8 @@ asscl/
 │   │       ├── mappers/               # Drift row ↔ Domain entity
 │   │       ├── repositories/          # 仓库实现（含 SemesterRepositoryImpl）
 │   │       └── services/              # NotificationServiceImpl, AiImportServiceImpl,
-│   │                                  # AiAgentServiceImpl, TelegramBotService, WeatherServiceImpl
+│   │                                  # AiAgentServiceImpl, TelegramBotService, WeatherServiceImpl,
+│   │                                  # SttServiceImpl
 │   └── presentation/                  # 共享 Widget + 主题
 │       └── lib/src/
 │           ├── theme/app_theme.dart
@@ -130,6 +132,7 @@ asscl/
 - **桌面组件**: home_widget (Android AppWidget)
 - **AI 渲染**: gpt_markdown (Markdown + KaTeX)
 - **AI 接口**: OpenAI 兼容 API（可配置 endpoint/key/model）
+- **语音输入**: record 包录音 + OpenAI 兼容 STT API（/v1/audio/transcriptions）
 - **Bot 集成**: Telegram Bot API 9.5+（sendMessageDraft 流式输出）
 - **HTTP 代理**: dart:io HttpClient.findProxy + IOClient
 - **前台服务**: flutter_foreground_task（Bot 保活）

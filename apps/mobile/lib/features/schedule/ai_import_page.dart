@@ -12,6 +12,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../providers/ai_providers.dart';
@@ -23,6 +25,7 @@ import '../../providers/reminder_providers.dart';
 import '../../providers/semester_providers.dart';
 import '../../providers/task_providers.dart';
 import '../../providers/weather_providers.dart';
+import '../../providers/voice_providers.dart';
 import '../../providers/widget_providers.dart';
 
 const _uuid = Uuid();
@@ -123,6 +126,9 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   final _imagePicker = ImagePicker();
+  final _audioRecorder = AudioRecorder();
+  bool _isRecording = false;
+  bool _isTranscribing = false;
 
   // Convenience accessors into persistence
   List<_UiMessage> get _messages => _persistence.messages;
@@ -148,6 +154,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     // DO NOT cancel streaming or clear state — persist across navigation
     _textController.dispose();
     _scrollController.dispose();
+    _audioRecorder.dispose();
     super.dispose();
   }
 
@@ -369,6 +376,94 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       }
       _isSending = false;
     });
+  }
+
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      await _stopRecording();
+    } else {
+      await _startRecording();
+    }
+  }
+
+  Future<void> _startRecording() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        final dir = await getTemporaryDirectory();
+        final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        await _audioRecorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc),
+          path: path,
+        );
+        setState(() => _isRecording = true);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('需要麦克风权限才能录音')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('录音启动失败: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    try {
+      final path = await _audioRecorder.stop();
+      setState(() {
+        _isRecording = false;
+        _isTranscribing = true;
+      });
+
+      if (path == null) {
+        setState(() => _isTranscribing = false);
+        return;
+      }
+
+      final sttService = ref.read(sttServiceProvider);
+      if (sttService == null) {
+        setState(() => _isTranscribing = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('语音功能未配置，请在 AI 配置中设置')),
+          );
+        }
+        // Clean up temp file
+        try { await File(path).delete(); } catch (_) {}
+        return;
+      }
+
+      try {
+        final text = await sttService.transcribe(filePath: path);
+        if (text.isNotEmpty && mounted) {
+          final current = _textController.text;
+          _textController.text = current.isEmpty ? text : '$current $text';
+          _textController.selection = TextSelection.collapsed(
+            offset: _textController.text.length,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('语音转文字失败: $e')),
+          );
+        }
+      } finally {
+        // Clean up temp file
+        try { await File(path).delete(); } catch (_) {}
+        if (mounted) setState(() => _isTranscribing = false);
+      }
+    } catch (e) {
+      setState(() {
+        _isRecording = false;
+        _isTranscribing = false;
+      });
+    }
   }
 
   Future<void> _send() async {
@@ -1542,6 +1637,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final enterToSend = ref.watch(enterToSendProvider).valueOrNull ?? false;
+    final voiceEnabled = ref.watch(voiceEnabledProvider).valueOrNull ?? false;
     // Eagerly watch so aiConfigProvider's future starts resolving immediately
     final agentReady = ref.watch(aiAgentServiceProvider) != null;
     final configLoading = ref.watch(aiConfigProvider).isLoading;
@@ -1704,6 +1800,28 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                     tooltip: '导入文件',
                     onPressed: _isSending ? null : _pickDocument,
                   ),
+                  if (voiceEnabled)
+                    _isTranscribing
+                        ? const SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: Icon(
+                              _isRecording ? Icons.stop_circle : Icons.mic,
+                              color: _isRecording
+                                  ? theme.colorScheme.error
+                                  : null,
+                            ),
+                            tooltip: _isRecording ? '停止录音' : '语音输入',
+                            onPressed: (_isSending || _isTranscribing)
+                                ? null
+                                : _toggleRecording,
+                          ),
                   Expanded(
                     child: KeyboardListener(
                       focusNode: FocusNode(),
