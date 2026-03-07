@@ -11,6 +11,11 @@ import 'proxy_providers.dart';
 
 const _cacheKey = 'shortenedCourseNames';
 
+/// Helper to look up a short name from the cache by course name.
+String? lookupShortName(Map<String, String> cache, String courseName) {
+  return cache[courseName.trim().toLowerCase()];
+}
+
 /// Whether AI-shortened course names are enabled.
 final aiShortenNamesEnabledProvider = FutureProvider<bool>((ref) async {
   final db = ref.watch(appDatabaseProvider);
@@ -19,7 +24,8 @@ final aiShortenNamesEnabledProvider = FutureProvider<bool>((ref) async {
   return value == 'true';
 });
 
-/// Persistent cache of shortened course names: courseId → shortName.
+/// Persistent cache of shortened course names: normalizedName → shortName.
+/// Normalized name = name.trim().toLowerCase().
 /// Stored as JSON in the settings table.
 final shortenedCourseNamesProvider =
     AsyncNotifierProvider<ShortenedCourseNamesNotifier, Map<String, String>>(
@@ -36,8 +42,29 @@ class ShortenedCourseNamesNotifier
     if (!enabled) return {};
 
     // Load from DB cache
-    final cached = await _loadCache();
-    if (cached.isNotEmpty) return cached;
+    var cached = await _loadCache();
+
+    // Migrate old courseId-based cache to name-based cache
+    if (cached.isNotEmpty) {
+      final courses = await ref.watch(watchCoursesProvider.future);
+      final courseById = {for (final c in courses) c.id: c};
+      final hasOldKeys = cached.keys.any((k) => courseById.containsKey(k));
+      if (hasOldKeys) {
+        final migrated = <String, String>{};
+        for (final entry in cached.entries) {
+          final course = courseById[entry.key];
+          if (course != null) {
+            migrated[course.name.trim().toLowerCase()] = entry.value;
+          } else {
+            // Already a name-based key, keep it
+            migrated[entry.key] = entry.value;
+          }
+        }
+        cached = migrated;
+        await _saveCache(cached);
+      }
+      return cached;
+    }
 
     // No cache — try AI generation
     final config = ref.watch(aiConfigProvider).valueOrNull;
@@ -51,18 +78,18 @@ class ShortenedCourseNamesNotifier
     return result;
   }
 
-  /// Manually set a shortened name for a course.
-  Future<void> setName(String courseId, String shortName) async {
+  /// Manually set a shortened name by normalized course name key.
+  Future<void> setName(String nameKey, String shortName) async {
     final current = state.valueOrNull ?? {};
-    final updated = {...current, courseId: shortName};
+    final updated = {...current, nameKey: shortName};
     state = AsyncData(updated);
     await _saveCache(updated);
   }
 
-  /// Remove a single shortened name (revert to original).
-  Future<void> removeName(String courseId) async {
+  /// Remove a single shortened name by normalized course name key.
+  Future<void> removeName(String nameKey) async {
     final current = state.valueOrNull ?? {};
-    final updated = {...current}..remove(courseId);
+    final updated = {...current}..remove(nameKey);
     state = AsyncData(updated);
     await _saveCache(updated);
   }
@@ -160,11 +187,11 @@ class ShortenedCourseNamesNotifier
         }
 
         final result = <String, String>{};
-        for (final course in courses) {
-          final key = course.name.trim().toLowerCase();
-          final shortName = nameLookup[key];
-          if (shortName != null && shortName.toLowerCase() != key) {
-            result[course.id] = shortName;
+        for (final entry in nameLookup.entries) {
+          final key = entry.key; // already lowercased
+          final shortName = entry.value;
+          if (shortName.toLowerCase() != key) {
+            result[key] = shortName;
           }
         }
         return result;

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../providers/course_providers.dart';
 import '../../providers/shortened_names_provider.dart';
 
 class ShortenedNamesPage extends ConsumerWidget {
@@ -10,14 +9,13 @@ class ShortenedNamesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shortenedAsync = ref.watch(shortenedCourseNamesProvider);
-    final coursesAsync = ref.watch(watchCoursesProvider);
-    final courses = coursesAsync.valueOrNull ?? [];
     final shortened = shortenedAsync.valueOrNull ?? {};
     final isLoading = shortenedAsync.isLoading;
     final theme = Theme.of(context);
 
-    final mappedCourses =
-        courses.where((c) => shortened.containsKey(c.id)).toList();
+    // Sort entries by key (normalized name) for stable display
+    final entries = shortened.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
 
     return Scaffold(
       appBar: AppBar(
@@ -41,7 +39,7 @@ class ShortenedNamesPage extends ConsumerWidget {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : mappedCourses.isEmpty
+          : entries.isEmpty
               ? Center(
                   child: Text(
                     '暂无简称缓存，将在课程加载后自动生成',
@@ -51,13 +49,15 @@ class ShortenedNamesPage extends ConsumerWidget {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: mappedCourses.length,
+                  itemCount: entries.length,
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
-                    final c = mappedCourses[i];
-                    final shortName = shortened[c.id]!;
+                    final entry = entries[i];
+                    final nameKey = entry.key;
+                    final shortName = entry.value;
                     return ListTile(
-                      title: Text(c.name, style: const TextStyle(fontSize: 14)),
+                      title:
+                          Text(nameKey, style: const TextStyle(fontSize: 14)),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -73,14 +73,14 @@ class ShortenedNamesPage extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.edit, size: 18),
                             onPressed: () => _editShortName(
-                                context, ref, c.id, c.name, shortName),
+                                context, ref, nameKey, shortName),
                             visualDensity: VisualDensity.compact,
                           ),
                           IconButton(
                             icon: const Icon(Icons.close, size: 18),
                             onPressed: () => ref
                                 .read(shortenedCourseNamesProvider.notifier)
-                                .removeName(c.id),
+                                .removeName(nameKey),
                             visualDensity: VisualDensity.compact,
                           ),
                         ],
@@ -94,8 +94,7 @@ class ShortenedNamesPage extends ConsumerWidget {
   Future<void> _editShortName(
     BuildContext context,
     WidgetRef ref,
-    String courseId,
-    String fullName,
+    String nameKey,
     String currentShortName,
   ) async {
     final controller = TextEditingController(text: currentShortName);
@@ -107,7 +106,7 @@ class ShortenedNamesPage extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('原名: $fullName',
+            Text('原名: $nameKey',
                 style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 12),
             TextField(
@@ -137,7 +136,7 @@ class ShortenedNamesPage extends ConsumerWidget {
     if (result != null && result.isNotEmpty && context.mounted) {
       ref
           .read(shortenedCourseNamesProvider.notifier)
-          .setName(courseId, result);
+          .setName(nameKey, result);
     }
   }
 }

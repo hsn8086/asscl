@@ -61,7 +61,7 @@ class CourseCard extends ConsumerWidget {
     // Grid card — may span multiple periods
     final shortenedNames =
         ref.watch(shortenedCourseNamesProvider).valueOrNull ?? {};
-    final displayName = shortenedNames[course.id] ?? course.name;
+    final displayName = lookupShortName(shortenedNames, course.name) ?? course.name;
 
     return GestureDetector(
       onTap: () => context.go('/schedule/course/${course.id}'),
