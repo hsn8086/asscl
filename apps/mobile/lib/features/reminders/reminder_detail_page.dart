@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:presentation/presentation.dart';
 
+import '../../providers/notification_providers.dart';
 import '../../providers/reminder_providers.dart';
 
 class ReminderDetailPage extends ConsumerWidget {
@@ -35,6 +36,7 @@ class ReminderDetailPage extends ConsumerWidget {
                 await ref
                     .read(reminderRepositoryProvider)
                     .delete(reminderId);
+                await ref.read(notificationServiceProvider).cancel(reminderId);
                 if (context.mounted) context.go('/reminders');
               }
             },
@@ -75,10 +77,16 @@ class ReminderDetailPage extends ConsumerWidget {
               SwitchListTile(
                 title: const Text('启用'),
                 value: reminder.isActive,
-                onChanged: (active) {
-                  ref
+                onChanged: (active) async {
+                  await ref
                       .read(reminderRepositoryProvider)
                       .setActive(reminder.id, active: active);
+                  final ns = ref.read(notificationServiceProvider);
+                  if (active && reminder.scheduledAt.isAfter(DateTime.now())) {
+                    await ns.schedule(reminder.copyWith(isActive: active));
+                  } else {
+                    await ns.cancel(reminder.id);
+                  }
                 },
               ),
             ],

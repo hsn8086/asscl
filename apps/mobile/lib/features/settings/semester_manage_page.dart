@@ -123,12 +123,14 @@ class SemesterManagePage extends ConsumerWidget {
     await repo.delete(semester.id);
 
     if (isActive) {
-      // Switch to first remaining semester
+      // Switch to first remaining semester, or clear if none left
       final remaining = await repo.watchAll().first;
+      final db = ref.read(appDatabaseProvider);
       if (remaining.isNotEmpty) {
-        final db = ref.read(appDatabaseProvider);
         await SettingsDao(db)
             .setValue('activeSemesterId', remaining.first.id);
+      } else {
+        await SettingsDao(db).deleteKey('activeSemesterId');
       }
     }
 

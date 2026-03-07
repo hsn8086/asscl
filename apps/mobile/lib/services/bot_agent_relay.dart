@@ -17,6 +17,7 @@ import '../providers/semester_providers.dart';
 class BotAgentRelay {
   final Ref _ref;
   StreamSubscription<BotIncomingMessage>? _pollSub;
+  TelegramBotService? _botRef;
   bool _active = false;
 
   BotAgentRelay(this._ref);
@@ -37,6 +38,7 @@ class BotAgentRelay {
     final bot = _ref.read(telegramBotServiceProvider);
     if (bot == null) return;
 
+    _botRef = bot;
     _pollSub = bot.pollMessages().listen(_handleMessage);
   }
 
@@ -44,7 +46,8 @@ class BotAgentRelay {
     _active = false;
     _pollSub?.cancel();
     _pollSub = null;
-    _ref.read(telegramBotServiceProvider)?.stopPolling();
+    _botRef?.stopPolling();
+    _botRef = null;
   }
 
   Future<void> _handleMessage(BotIncomingMessage msg) async {
@@ -52,6 +55,9 @@ class BotAgentRelay {
     final bot = _ref.read(telegramBotServiceProvider);
     final config = _ref.read(tgConfigProvider).valueOrNull;
     if (agent == null || bot == null || config == null) return;
+
+    // Only respond to messages from the configured chat — ignore others.
+    if (msg.chatId != config.chatId) return;
 
     try {
       // Stream AI response back to Telegram.

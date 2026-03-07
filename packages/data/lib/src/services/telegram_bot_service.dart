@@ -48,12 +48,12 @@ class TelegramBotService implements BotPlatformService {
   @override
   Future<void> sendMessage(String chatId, String text) async {
     // Telegram limits message length to 4096 chars; split if needed.
+    // Send as plain text to avoid Markdown injection from user content.
     final chunks = _splitText(text, 4096);
     for (final chunk in chunks) {
       await _post('sendMessage', {
         'chat_id': chatId,
         'text': chunk,
-        'parse_mode': 'Markdown',
       });
     }
   }

@@ -829,6 +829,8 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
               .map((e) => e as int)
               .toList()
           : course.customWeeks,
+      color: course.color,
+      semesterId: course.semesterId,
       createdAt: course.createdAt,
       updatedAt: DateTime.now(),
     );
@@ -1183,17 +1185,28 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
         return;
       }
 
+      // Delete all courses in this semester first
+      final courseRepo = ref.read(courseRepositoryProvider);
+      final allCourses = await courseRepo.watchAll().first;
+      for (final c in allCourses) {
+        if (c.semesterId == semesterId) {
+          await courseRepo.delete(c.id);
+        }
+      }
+
       await ref.read(semesterRepositoryProvider).delete(semesterId);
 
-      // If deleted semester was active, switch to another
+      // If deleted semester was active, switch to another or clear
       final activeId = ref.read(activeSemesterIdProvider).valueOrNull;
       if (activeId == semesterId) {
         final remaining =
             await ref.read(semesterRepositoryProvider).watchAll().first;
+        final db = ref.read(appDatabaseProvider);
         if (remaining.isNotEmpty) {
-          final db = ref.read(appDatabaseProvider);
           await SettingsDao(db)
               .setValue('activeSemesterId', remaining.first.id);
+        } else {
+          await SettingsDao(db).deleteKey('activeSemesterId');
         }
         ref.invalidate(activeSemesterIdProvider);
       }

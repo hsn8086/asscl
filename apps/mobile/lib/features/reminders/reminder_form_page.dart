@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../providers/bot_providers.dart';
+import '../../providers/notification_providers.dart';
 import '../../providers/reminder_providers.dart';
 
 const _uuid = Uuid();
@@ -84,6 +85,13 @@ class _ReminderFormPageState extends ConsumerState<ReminderFormPage> {
     );
 
     await ref.read(reminderRepositoryProvider).save(reminder);
+
+    // Schedule local notification
+    final notificationService = ref.read(notificationServiceProvider);
+    if (reminder.isActive && reminder.scheduledAt.isAfter(DateTime.now())) {
+      await notificationService.schedule(reminder);
+    }
+
     forwardReminderToTg(ref, reminder);
     ref.invalidate(watchRemindersProvider);
     if (widget.reminderId != null) {

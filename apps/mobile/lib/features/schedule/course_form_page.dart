@@ -34,6 +34,8 @@ class _CourseFormPageState extends ConsumerState<CourseFormPage> {
   final Set<int> _customWeeks = {};
   bool _isLoading = false;
   String? _existingSemesterId;
+  String? _existingColor;
+  DateTime? _existingCreatedAt;
 
   bool get _isEditing => widget.courseId != null;
 
@@ -61,6 +63,8 @@ class _CourseFormPageState extends ConsumerState<CourseFormPage> {
           ..clear()
           ..addAll(course.customWeeks);
         _existingSemesterId = course.semesterId;
+        _existingColor = course.color;
+        _existingCreatedAt = course.createdAt;
       });
     }
   }
@@ -93,10 +97,11 @@ class _CourseFormPageState extends ConsumerState<CourseFormPage> {
       endPeriod: _endPeriod,
       weekMode: _weekMode,
       customWeeks: _customWeeks.toList()..sort(),
+      color: _existingColor,
       semesterId: _isEditing
           ? _existingSemesterId
           : ref.read(activeSemesterIdProvider).valueOrNull,
-      createdAt: now,
+      createdAt: _existingCreatedAt ?? now,
       updatedAt: now,
     );
 

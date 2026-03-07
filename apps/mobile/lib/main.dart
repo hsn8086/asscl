@@ -7,6 +7,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 
 import 'app.dart';
+import 'providers/notification_providers.dart';
 
 @pragma('vm:entry-point')
 Future<void> _homeWidgetBackgroundCallback(Uri? uri) async {
@@ -38,5 +39,10 @@ void main() async {
     await androidPlugin?.requestExactAlarmsPermission();
   }
 
-  runApp(const ProviderScope(child: App()));
+  runApp(ProviderScope(
+    overrides: [
+      notificationPluginProvider.overrideWithValue(notificationsPlugin),
+    ],
+    child: const App(),
+  ));
 }

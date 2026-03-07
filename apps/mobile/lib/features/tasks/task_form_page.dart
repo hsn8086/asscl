@@ -26,6 +26,9 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
   DateTime? _dueDate;
   final List<_SubTaskEntry> _subtasks = [];
   bool _isLoading = false;
+  bool _existingIsDone = false;
+  String? _existingCourseId;
+  DateTime? _existingCreatedAt;
 
   bool get _isEditing => widget.taskId != null;
 
@@ -44,6 +47,9 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
         _descController.text = task.description ?? '';
         _priority = task.priority;
         _dueDate = task.dueDate;
+        _existingIsDone = task.isDone;
+        _existingCourseId = task.courseId;
+        _existingCreatedAt = task.createdAt;
         _subtasks
           ..clear()
           ..addAll(task.subtasks.map((s) => _SubTaskEntry(
@@ -78,7 +84,9 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
           ? null
           : _descController.text.trim(),
       priority: _priority,
+      isDone: _existingIsDone,
       dueDate: _dueDate,
+      courseId: _existingCourseId,
       subtasks: _subtasks
           .where((s) => s.controller.text.trim().isNotEmpty)
           .map((s) => SubTask(
@@ -87,7 +95,7 @@ class _TaskFormPageState extends ConsumerState<TaskFormPage> {
                 isDone: s.isDone,
               ))
           .toList(),
-      createdAt: now,
+      createdAt: _existingCreatedAt ?? now,
       updatedAt: now,
     );
 

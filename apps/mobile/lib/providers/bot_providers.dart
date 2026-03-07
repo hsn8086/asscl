@@ -68,8 +68,8 @@ Future<void> forwardReminderToTg(dynamic ref, Reminder reminder) async {
   if (bot == null) return;
 
   final df = DateFormat('yyyy-MM-dd HH:mm');
-  final text = '🔔 *提醒已设置*\n'
-      '*${reminder.title}*\n'
+  final text = '🔔 提醒已设置\n'
+      '${reminder.title}\n'
       '${reminder.body ?? ''}\n'
       '⏰ ${df.format(reminder.scheduledAt)}';
 

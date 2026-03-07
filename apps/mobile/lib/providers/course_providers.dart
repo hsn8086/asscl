@@ -11,9 +11,11 @@ final courseRepositoryProvider = Provider<CourseRepository>((ref) {
 });
 
 /// Courses filtered by the active semester.
-final watchCoursesProvider = StreamProvider<List<Course>>((ref) {
-  final activeId = ref.watch(activeSemesterIdProvider).valueOrNull;
-  return ref.watch(courseRepositoryProvider).watchAll().map((courses) {
+/// Waits for activeSemesterId to resolve before emitting,
+/// to avoid briefly flashing all courses.
+final watchCoursesProvider = StreamProvider<List<Course>>((ref) async* {
+  final activeId = await ref.watch(activeSemesterIdProvider.future);
+  yield* ref.watch(courseRepositoryProvider).watchAll().map((courses) {
     if (activeId == null) return courses;
     return courses.where((c) => c.semesterId == activeId).toList();
   });

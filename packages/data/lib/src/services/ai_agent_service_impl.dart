@@ -381,9 +381,10 @@ class AiAgentServiceImpl implements AiAgentService {
 
   @override
   void restoreHistory(List<Map<String, dynamic>> history) {
-    _history
-      ..clear()
-      ..addAll(history);
+    _history.clear();
+    // Always prepend system prompt so AI continues to follow tool protocols.
+    _history.add({'role': 'system', 'content': _systemPrompt});
+    _history.addAll(history);
   }
 
   void _ensureSystemPrompt(String? extraPrompt) {
@@ -701,6 +702,9 @@ class AiAgentServiceImpl implements AiAgentService {
       final candidate = codeBlockMatch.group(1)!.trim();
       if (candidate.startsWith('[')) return candidate;
     }
+    // Also handle bare JSON arrays (e.g. from persisted parsedCoursesJson).
+    final trimmed = content.trim();
+    if (trimmed.startsWith('[')) return trimmed;
     return null;
   }
 

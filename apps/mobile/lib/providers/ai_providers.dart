@@ -33,7 +33,11 @@ final aiAgentServiceProvider = Provider<AiAgentService?>((ref) {
   final config = ref.watch(aiConfigProvider).valueOrNull;
   final client = ref.watch(httpClientProvider);
   if (config == null) {
-    return _cachedAgent;
+    // Config cleared — drop stale cached agent to prevent state pollution.
+    _cachedAgent = null;
+    _lastAgentConfig = null;
+    _lastAgentClient = null;
+    return null;
   }
   if (_cachedAgent != null &&
       _lastAgentConfig == config &&
