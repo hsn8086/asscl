@@ -1,11 +1,13 @@
 import 'package:data/data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/database_provider.dart';
 import '../../providers/ai_providers.dart';
 import '../../providers/shortened_names_provider.dart';
+import '../../providers/weather_providers.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -17,6 +19,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _enterToSend = false;
   bool _aiShortenNames = false;
+  bool _weatherEnabled = false;
   bool _isLoaded = false;
 
   Future<void> _loadSettings() async {
@@ -26,10 +29,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final dao = SettingsDao(db);
     final enterToSend = await dao.getValue('enterToSend');
     final aiShortenNames = await dao.getValue('aiShortenNames');
+    final weatherEnabled = await dao.getValue('weatherEnabled');
     if (mounted) {
       setState(() {
         _enterToSend = enterToSend == 'true';
         _aiShortenNames = aiShortenNames == 'true';
+        _weatherEnabled = weatherEnabled == 'true';
       });
     }
   }
@@ -48,6 +53,30 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await dao.setValue('aiShortenNames', value.toString());
     ref.invalidate(aiShortenNamesEnabledProvider);
     setState(() => _aiShortenNames = value);
+  }
+
+  Future<void> _toggleWeather(bool value) async {
+    if (value) {
+      // Request location permission
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('需要位置权限才能获取天气信息')),
+          );
+        }
+        return;
+      }
+    }
+    final db = ref.read(appDatabaseProvider);
+    final dao = SettingsDao(db);
+    await dao.setValue('weatherEnabled', value.toString());
+    ref.invalidate(weatherEnabledProvider);
+    setState(() => _weatherEnabled = value);
   }
 
   @override
@@ -133,6 +162,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.cloud),
+                  title: const Text('天气提醒'),
+                  subtitle: const Text('开启后 AI 可获取天气信息'),
+                  value: _weatherEnabled,
+                  onChanged: _toggleWeather,
+                ),
+                const Divider(height: 1, indent: 56),
                 _NavTile(
                   icon: Icons.smart_toy,
                   title: 'Bot 集成',

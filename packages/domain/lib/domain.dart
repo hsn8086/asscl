@@ -32,6 +32,7 @@ export 'src/services/notification_service.dart';
 export 'src/services/ai_import_service.dart';
 export 'src/services/ai_agent_service.dart';
 export 'src/services/bot_platform_service.dart';
+export 'src/services/weather_service.dart';
 
 // Use cases - Course
 export 'src/usecases/course/save_course_use_case.dart';

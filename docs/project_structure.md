@@ -92,7 +92,7 @@ asscl/
 │   │       ├── data/                  # 静态数据（school_presets.dart）
 │   │       ├── repositories/          # 仓库抽象接口（含 SemesterRepository）
 │   │       ├── services/              # NotificationService, AiImportService, AiAgentService,
-│   │       │                          # BotPlatformService 接口
+│   │       │                          # BotPlatformService, WeatherService 接口
 │   │       └── usecases/              # 用例（course/, task/, reminder/）
 │   ├── data/                          # 数据层
 │   │   └── lib/src/
@@ -105,7 +105,7 @@ asscl/
 │   │       ├── mappers/               # Drift row ↔ Domain entity
 │   │       ├── repositories/          # 仓库实现（含 SemesterRepositoryImpl）
 │   │       └── services/              # NotificationServiceImpl, AiImportServiceImpl,
-│   │                                  # AiAgentServiceImpl, TelegramBotService
+│   │                                  # AiAgentServiceImpl, TelegramBotService, WeatherServiceImpl
 │   └── presentation/                  # 共享 Widget + 主题
 │       └── lib/src/
 │           ├── theme/app_theme.dart

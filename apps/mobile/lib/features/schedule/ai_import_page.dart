@@ -22,6 +22,7 @@ import '../../providers/period_config_providers.dart';
 import '../../providers/reminder_providers.dart';
 import '../../providers/semester_providers.dart';
 import '../../providers/task_providers.dart';
+import '../../providers/weather_providers.dart';
 import '../../providers/widget_providers.dart';
 
 const _uuid = Uuid();
@@ -607,6 +608,8 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
           await _executeUpdateSemester(ptc: ptc, tc: tc, agent: agent);
         case 'delete_semester':
           await _executeDeleteSemester(ptc: ptc, tc: tc, agent: agent, repo: repo);
+        case 'get_current_context':
+          await _executeGetCurrentContext(ptc: ptc, tc: tc, agent: agent);
       }
 
       msg.pendingToolCalls.add(ptc);
@@ -977,6 +980,25 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       ptc.status = _ToolCallStatus.confirmed;
     } catch (e) {
       agent.addToolResult(tc.id, '查询学期失败: $e');
+      ptc.status = _ToolCallStatus.confirmed;
+    }
+  }
+
+  /// Auto-execute get_current_context (read-only).
+  Future<void> _executeGetCurrentContext({
+    required _PendingToolCall ptc,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+  }) async {
+    try {
+      final result = await fetchCurrentContext(
+        weatherEnabled: ref.read(weatherEnabledProvider).valueOrNull ?? false,
+        weatherService: ref.read(weatherServiceProvider),
+      );
+      agent.addToolResult(tc.id, result);
+      ptc.status = _ToolCallStatus.confirmed;
+    } catch (e) {
+      agent.addToolResult(tc.id, '获取上下文失败: $e');
       ptc.status = _ToolCallStatus.confirmed;
     }
   }

@@ -22,6 +22,7 @@ class AiAgentServiceImpl implements AiAgentService {
 5. 设置节次时间（每节课的上下课时间）
 6. 管理学期（查询、创建、修改、删除学期）
 7. 回答关于课程安排的问题
+8. 获取当前时间、位置和天气信息
 
 当用户发送课程表信息（文本或图片）时，使用 import_courses 工具来导入。
 当用户要查询课程时，使用 query_courses 工具获取数据后回答。
@@ -35,6 +36,7 @@ class AiAgentServiceImpl implements AiAgentService {
 当用户要创建学期时，使用 create_semester 工具。
 当用户要修改学期时，先用 query_semesters 查到学期ID，再用 update_semester 修改。
 当用户要删除学期时，先用 query_semesters 查到学期ID，再用 delete_semester 删除。
+当用户询问天气、时间、日期或位置相关问题时，使用 get_current_context 工具。
 不要直接输出 JSON，而是调用工具。
 
 如果用户只是聊天或提问且不涉及上述操作，正常回复即可。
@@ -365,6 +367,17 @@ class AiAgentServiceImpl implements AiAgentService {
               'description': '要删除的学期ID',
             },
           },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'get_current_context',
+        'description': '获取当前时间、用户位置和天气信息。当用户询问天气、时间、日期或位置相关问题时调用。',
+        'parameters': {
+          'type': 'object',
+          'properties': {},
         },
       },
     },

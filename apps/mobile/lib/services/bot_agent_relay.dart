@@ -9,6 +9,7 @@ import '../providers/ai_providers.dart';
 import '../providers/bot_providers.dart';
 import '../providers/course_providers.dart';
 import '../providers/semester_providers.dart';
+import '../providers/weather_providers.dart';
 
 /// Relay service that bridges Telegram Bot messages with the AI Agent.
 ///
@@ -26,6 +27,7 @@ class BotAgentRelay {
   static const _autoExecTools = {
     'query_courses',
     'query_semesters',
+    'get_current_context',
   };
 
   void start() {
@@ -129,12 +131,17 @@ class BotAgentRelay {
 
   Future<String> _executeTool(ChatToolCall tc) async {
     try {
-      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
       switch (tc.name) {
         case 'query_courses':
+          final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
           return _queryCoursesResult(args);
         case 'query_semesters':
           return _querySemestersResult();
+        case 'get_current_context':
+          return fetchCurrentContext(
+            weatherEnabled: _ref.read(weatherEnabledProvider).valueOrNull ?? false,
+            weatherService: _ref.read(weatherServiceProvider),
+          );
         default:
           return '不支持的工具: ${tc.name}';
       }
