@@ -12,13 +12,21 @@ final widgetServiceProvider = Provider<WidgetService>((ref) {
 });
 
 /// Convenience: read semester context and update widgets in one call.
-void refreshWidgets(dynamic ref) {
-  // ref can be WidgetRef or Ref — both support read()
-  final semester = ref.read(activeSemesterProvider);
+///
+/// Awaits [activeSemesterIdProvider] so the widget update is not fired before
+/// the active semester has been resolved (which would cause all-semester data
+/// to be pushed to the home-screen widget).
+Future<void> refreshWidgets(dynamic ref) async {
+  // Wait for the semester stream to emit at least one value.
+  final activeId = await ref.read(activeSemesterIdProvider.future);
+  final semesters = ref.read(semestersProvider).valueOrNull ?? [];
+  final semester = activeId == null
+      ? null
+      : semesters.where((s) => s.id == activeId).firstOrNull;
   final week = ref.read(currentWeekProvider);
   ref.read(widgetServiceProvider).updateWidgets(
         semesterName: semester?.name ?? '',
-        semesterId: semester?.id,
+        semesterId: activeId,
         currentWeek: week,
       );
 }
