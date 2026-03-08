@@ -1,13 +1,11 @@
 import 'package:data/data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/database_provider.dart';
 import '../../providers/ai_providers.dart';
 import '../../providers/shortened_names_provider.dart';
-import '../../providers/weather_providers.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -19,13 +17,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _enterToSend = false;
   bool _aiShortenNames = false;
-  bool _weatherEnabled = false;
-  bool _weatherAlertRain = true;
-  bool _weatherAlertSnow = true;
-  bool _weatherAlertHighTemp = true;
-  double _weatherHighTempThreshold = 35;
-  bool _weatherAlertLowTemp = true;
-  double _weatherLowTempThreshold = 0;
   bool _isLoaded = false;
 
   Future<void> _loadSettings() async {
@@ -35,24 +26,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final dao = SettingsDao(db);
     final enterToSend = await dao.getValue('enterToSend');
     final aiShortenNames = await dao.getValue('aiShortenNames');
-    final weatherEnabled = await dao.getValue('weatherEnabled');
-    final weatherAlertRain = await dao.getValue('weatherAlertRain');
-    final weatherAlertSnow = await dao.getValue('weatherAlertSnow');
-    final weatherAlertHighTemp = await dao.getValue('weatherAlertHighTemp');
-    final weatherHighTempThreshold = await dao.getValue('weatherAlertHighTempThreshold');
-    final weatherAlertLowTemp = await dao.getValue('weatherAlertLowTemp');
-    final weatherLowTempThreshold = await dao.getValue('weatherAlertLowTempThreshold');
     if (mounted) {
       setState(() {
         _enterToSend = enterToSend == 'true';
         _aiShortenNames = aiShortenNames == 'true';
-        _weatherEnabled = weatherEnabled == 'true';
-        _weatherAlertRain = weatherAlertRain != 'false';
-        _weatherAlertSnow = weatherAlertSnow != 'false';
-        _weatherAlertHighTemp = weatherAlertHighTemp != 'false';
-        _weatherHighTempThreshold = double.tryParse(weatherHighTempThreshold ?? '') ?? 35;
-        _weatherAlertLowTemp = weatherAlertLowTemp != 'false';
-        _weatherLowTempThreshold = double.tryParse(weatherLowTempThreshold ?? '') ?? 0;
       });
     }
   }
@@ -71,46 +48,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await dao.setValue('aiShortenNames', value.toString());
     ref.invalidate(aiShortenNamesEnabledProvider);
     setState(() => _aiShortenNames = value);
-  }
-
-  Future<void> _toggleWeather(bool value) async {
-    if (value) {
-      // Request location permission
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('需要位置权限才能获取天气信息')),
-          );
-        }
-        return;
-      }
-    }
-    final db = ref.read(appDatabaseProvider);
-    final dao = SettingsDao(db);
-    await dao.setValue('weatherEnabled', value.toString());
-    ref.invalidate(weatherEnabledProvider);
-    setState(() => _weatherEnabled = value);
-  }
-
-  Future<void> _toggleWeatherAlert(String key, bool value, void Function(bool) setter) async {
-    final db = ref.read(appDatabaseProvider);
-    final dao = SettingsDao(db);
-    await dao.setValue(key, value.toString());
-    ref.invalidate(weatherAlertConfigProvider);
-    setState(() => setter(value));
-  }
-
-  Future<void> _setWeatherThreshold(String key, double value, void Function(double) setter) async {
-    final db = ref.read(appDatabaseProvider);
-    final dao = SettingsDao(db);
-    await dao.setValue(key, value.toString());
-    ref.invalidate(weatherAlertConfigProvider);
-    setState(() => setter(value));
   }
 
   @override
@@ -196,12 +133,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                SwitchListTile(
-                  secondary: const Icon(Icons.cloud),
-                  title: const Text('天气提醒'),
-                  subtitle: const Text('开屏时根据天气条件弹出提醒卡片'),
-                  value: _weatherEnabled,
-                  onChanged: _toggleWeather,
+                _NavTile(
+                  icon: Icons.cloud,
+                  title: '天气提醒',
+                  subtitle: '开屏天气提醒条件配置',
+                  onTap: () => context.push('/settings/weather'),
                 ),
                 const Divider(height: 1, indent: 56),
                 _NavTile(
@@ -213,93 +149,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ],
             ),
           ),
-          if (_weatherEnabled) ...[
-            const SizedBox(height: 8),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    secondary: const Icon(Icons.water_drop),
-                    title: const Text('下雨提醒'),
-                    value: _weatherAlertRain,
-                    onChanged: (v) => _toggleWeatherAlert(
-                      'weatherAlertRain', v, (b) => _weatherAlertRain = b,
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 56),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.ac_unit),
-                    title: const Text('下雪提醒'),
-                    value: _weatherAlertSnow,
-                    onChanged: (v) => _toggleWeatherAlert(
-                      'weatherAlertSnow', v, (b) => _weatherAlertSnow = b,
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 56),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.thermostat),
-                    title: const Text('高温提醒'),
-                    subtitle: Text('≥ ${_weatherHighTempThreshold.round()}°C'),
-                    value: _weatherAlertHighTemp,
-                    onChanged: (v) => _toggleWeatherAlert(
-                      'weatherAlertHighTemp', v, (b) => _weatherAlertHighTemp = b,
-                    ),
-                  ),
-                  if (_weatherAlertHighTemp)
-                    ListTile(
-                      leading: const SizedBox(width: 24),
-                      title: Slider(
-                        value: _weatherHighTempThreshold,
-                        min: 30,
-                        max: 45,
-                        divisions: 15,
-                        label: '${_weatherHighTempThreshold.round()}°C',
-                        onChanged: (v) => setState(() => _weatherHighTempThreshold = v),
-                        onChangeEnd: (v) => _setWeatherThreshold(
-                          'weatherAlertHighTempThreshold', v,
-                          (d) => _weatherHighTempThreshold = d,
-                        ),
-                      ),
-                      subtitle: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [Text('30°C'), Text('45°C')],
-                      ),
-                    ),
-                  const Divider(height: 1, indent: 56),
-                  SwitchListTile(
-                    secondary: const Icon(Icons.severe_cold),
-                    title: const Text('低温提醒'),
-                    subtitle: Text('≤ ${_weatherLowTempThreshold.round()}°C'),
-                    value: _weatherAlertLowTemp,
-                    onChanged: (v) => _toggleWeatherAlert(
-                      'weatherAlertLowTemp', v, (b) => _weatherAlertLowTemp = b,
-                    ),
-                  ),
-                  if (_weatherAlertLowTemp)
-                    ListTile(
-                      leading: const SizedBox(width: 24),
-                      title: Slider(
-                        value: _weatherLowTempThreshold,
-                        min: -10,
-                        max: 10,
-                        divisions: 20,
-                        label: '${_weatherLowTempThreshold.round()}°C',
-                        onChanged: (v) => setState(() => _weatherLowTempThreshold = v),
-                        onChangeEnd: (v) => _setWeatherThreshold(
-                          'weatherAlertLowTempThreshold', v,
-                          (d) => _weatherLowTempThreshold = d,
-                        ),
-                      ),
-                      subtitle: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [Text('-10°C'), Text('10°C')],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
 
           // ── 网络 ──
           _SectionHeader('网络'),
