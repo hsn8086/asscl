@@ -203,94 +203,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   value: _weatherEnabled,
                   onChanged: _toggleWeather,
                 ),
-                if (_weatherEnabled) ...[
-                  const Divider(height: 1, indent: 56),
-                  SwitchListTile(
-                    secondary: const SizedBox(width: 24),
-                    title: const Text('下雨提醒'),
-                    value: _weatherAlertRain,
-                    onChanged: (v) => _toggleWeatherAlert(
-                      'weatherAlertRain', v, (b) => _weatherAlertRain = b,
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 56),
-                  SwitchListTile(
-                    secondary: const SizedBox(width: 24),
-                    title: const Text('下雪提醒'),
-                    value: _weatherAlertSnow,
-                    onChanged: (v) => _toggleWeatherAlert(
-                      'weatherAlertSnow', v, (b) => _weatherAlertSnow = b,
-                    ),
-                  ),
-                  const Divider(height: 1, indent: 56),
-                  SwitchListTile(
-                    secondary: const SizedBox(width: 24),
-                    title: const Text('高温提醒'),
-                    subtitle: Text('≥ ${_weatherHighTempThreshold.round()}°C'),
-                    value: _weatherAlertHighTemp,
-                    onChanged: (v) => _toggleWeatherAlert(
-                      'weatherAlertHighTemp', v, (b) => _weatherAlertHighTemp = b,
-                    ),
-                  ),
-                  if (_weatherAlertHighTemp)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Row(
-                        children: [
-                          const Text('30°C'),
-                          Expanded(
-                            child: Slider(
-                              value: _weatherHighTempThreshold,
-                              min: 30,
-                              max: 45,
-                              divisions: 15,
-                              label: '${_weatherHighTempThreshold.round()}°C',
-                              onChanged: (v) => setState(() => _weatherHighTempThreshold = v),
-                              onChangeEnd: (v) => _setWeatherThreshold(
-                                'weatherAlertHighTempThreshold', v,
-                                (d) => _weatherHighTempThreshold = d,
-                              ),
-                            ),
-                          ),
-                          const Text('45°C'),
-                        ],
-                      ),
-                    ),
-                  const Divider(height: 1, indent: 56),
-                  SwitchListTile(
-                    secondary: const SizedBox(width: 24),
-                    title: const Text('低温提醒'),
-                    subtitle: Text('≤ ${_weatherLowTempThreshold.round()}°C'),
-                    value: _weatherAlertLowTemp,
-                    onChanged: (v) => _toggleWeatherAlert(
-                      'weatherAlertLowTemp', v, (b) => _weatherAlertLowTemp = b,
-                    ),
-                  ),
-                  if (_weatherAlertLowTemp)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Row(
-                        children: [
-                          const Text('-10°C'),
-                          Expanded(
-                            child: Slider(
-                              value: _weatherLowTempThreshold,
-                              min: -10,
-                              max: 10,
-                              divisions: 20,
-                              label: '${_weatherLowTempThreshold.round()}°C',
-                              onChanged: (v) => setState(() => _weatherLowTempThreshold = v),
-                              onChangeEnd: (v) => _setWeatherThreshold(
-                                'weatherAlertLowTempThreshold', v,
-                                (d) => _weatherLowTempThreshold = d,
-                              ),
-                            ),
-                          ),
-                          const Text('10°C'),
-                        ],
-                      ),
-                    ),
-                ],
                 const Divider(height: 1, indent: 56),
                 _NavTile(
                   icon: Icons.smart_toy,
@@ -301,6 +213,93 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ],
             ),
           ),
+          if (_weatherEnabled) ...[
+            const SizedBox(height: 8),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    secondary: const Icon(Icons.water_drop),
+                    title: const Text('下雨提醒'),
+                    value: _weatherAlertRain,
+                    onChanged: (v) => _toggleWeatherAlert(
+                      'weatherAlertRain', v, (b) => _weatherAlertRain = b,
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.ac_unit),
+                    title: const Text('下雪提醒'),
+                    value: _weatherAlertSnow,
+                    onChanged: (v) => _toggleWeatherAlert(
+                      'weatherAlertSnow', v, (b) => _weatherAlertSnow = b,
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.thermostat),
+                    title: const Text('高温提醒'),
+                    subtitle: Text('≥ ${_weatherHighTempThreshold.round()}°C'),
+                    value: _weatherAlertHighTemp,
+                    onChanged: (v) => _toggleWeatherAlert(
+                      'weatherAlertHighTemp', v, (b) => _weatherAlertHighTemp = b,
+                    ),
+                  ),
+                  if (_weatherAlertHighTemp)
+                    ListTile(
+                      leading: const SizedBox(width: 24),
+                      title: Slider(
+                        value: _weatherHighTempThreshold,
+                        min: 30,
+                        max: 45,
+                        divisions: 15,
+                        label: '${_weatherHighTempThreshold.round()}°C',
+                        onChanged: (v) => setState(() => _weatherHighTempThreshold = v),
+                        onChangeEnd: (v) => _setWeatherThreshold(
+                          'weatherAlertHighTempThreshold', v,
+                          (d) => _weatherHighTempThreshold = d,
+                        ),
+                      ),
+                      subtitle: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: const [Text('30°C'), Text('45°C')],
+                      ),
+                    ),
+                  const Divider(height: 1, indent: 56),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.severe_cold),
+                    title: const Text('低温提醒'),
+                    subtitle: Text('≤ ${_weatherLowTempThreshold.round()}°C'),
+                    value: _weatherAlertLowTemp,
+                    onChanged: (v) => _toggleWeatherAlert(
+                      'weatherAlertLowTemp', v, (b) => _weatherAlertLowTemp = b,
+                    ),
+                  ),
+                  if (_weatherAlertLowTemp)
+                    ListTile(
+                      leading: const SizedBox(width: 24),
+                      title: Slider(
+                        value: _weatherLowTempThreshold,
+                        min: -10,
+                        max: 10,
+                        divisions: 20,
+                        label: '${_weatherLowTempThreshold.round()}°C',
+                        onChanged: (v) => setState(() => _weatherLowTempThreshold = v),
+                        onChangeEnd: (v) => _setWeatherThreshold(
+                          'weatherAlertLowTempThreshold', v,
+                          (d) => _weatherLowTempThreshold = d,
+                        ),
+                      ),
+                      subtitle: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: const [Text('-10°C'), Text('10°C')],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
 
           // ── 网络 ──
           _SectionHeader('网络'),
