@@ -13,6 +13,7 @@ import '../features/settings/bot_settings_page.dart';
 import '../features/settings/ai_config_page.dart';
 import '../features/settings/proxy_settings_page.dart';
 import '../features/settings/weather_settings_page.dart';
+import '../features/settings/webdav_settings_page.dart';
 import '../features/tasks/tasks_page.dart';
 import '../features/tasks/task_detail_page.dart';
 import '../features/tasks/task_form_page.dart';
@@ -66,6 +67,11 @@ final routerProvider = GoRouter(
           path: 'weather',
           parentNavigatorKey: _rootNavigatorKey,
           builder: (_, __) => const WeatherSettingsPage(),
+        ),
+        GoRoute(
+          path: 'webdav',
+          parentNavigatorKey: _rootNavigatorKey,
+          builder: (_, __) => const WebDavSettingsPage(),
         ),
       ],
     ),

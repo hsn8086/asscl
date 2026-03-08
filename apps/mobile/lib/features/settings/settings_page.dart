@@ -146,6 +146,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   subtitle: 'Telegram 通知转发、AI 助手',
                   onTap: () => context.push('/settings/bot'),
                 ),
+                const Divider(height: 1, indent: 56),
+                _NavTile(
+                  icon: Icons.sync,
+                  title: 'WebDAV 同步',
+                  subtitle: '通过 WebDAV 备份和恢复数据',
+                  onTap: () => context.push('/settings/webdav'),
+                ),
               ],
             ),
           ),
