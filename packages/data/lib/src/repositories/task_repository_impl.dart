@@ -51,8 +51,8 @@ class TaskRepositoryImpl implements domain.TaskRepository {
 
   @override
   Future<void> save(domain.Task task) async {
-    await _dao.upsert(task.toCompanion());
-    await _dao.replaceSubTasks(
+    await _dao.upsertWithSubTasks(
+      task.toCompanion(),
       task.id,
       task.subtasks.map((s) => s.toCompanion(task.id)).toList(),
     );

@@ -56,4 +56,19 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
       }
     });
   }
+
+  /// Atomically upsert a task and replace its subtasks in a single transaction.
+  Future<void> upsertWithSubTasks(
+    TasksTableCompanion task,
+    String taskId,
+    List<SubTasksTableCompanion> subtasks,
+  ) async {
+    await transaction(() async {
+      await into(tasksTable).insertOnConflictUpdate(task);
+      await deleteSubTasksByTaskId(taskId);
+      for (final entry in subtasks) {
+        await into(subTasksTable).insert(entry);
+      }
+    });
+  }
 }
