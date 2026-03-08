@@ -17,6 +17,52 @@ class AiConfigPage extends ConsumerStatefulWidget {
   ConsumerState<AiConfigPage> createState() => _AiConfigPageState();
 }
 
+/// AI provider presets for quick configuration.
+class _AiProviderPreset {
+  final String name;
+  final String baseUrl;
+  final String defaultModel;
+
+  const _AiProviderPreset({
+    required this.name,
+    required this.baseUrl,
+    required this.defaultModel,
+  });
+}
+
+const _kAiProviderPresets = <_AiProviderPreset>[
+  _AiProviderPreset(
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    defaultModel: 'gpt-4o-mini',
+  ),
+  _AiProviderPreset(
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-chat',
+  ),
+  _AiProviderPreset(
+    name: 'Anthropic',
+    baseUrl: 'https://api.anthropic.com/v1',
+    defaultModel: 'claude-sonnet-4-20250514',
+  ),
+  _AiProviderPreset(
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    defaultModel: 'openai/gpt-4o-mini',
+  ),
+  _AiProviderPreset(
+    name: 'Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    defaultModel: 'gemini-2.0-flash',
+  ),
+  _AiProviderPreset(
+    name: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    defaultModel: 'llama-3.3-70b-versatile',
+  ),
+];
+
 class _AiConfigPageState extends ConsumerState<AiConfigPage> {
   final _baseUrlController = TextEditingController();
   final _apiKeyController = TextEditingController();
@@ -223,6 +269,15 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
     }
   }
 
+  void _applyPreset(_AiProviderPreset preset) {
+    setState(() {
+      _baseUrlController.text = preset.baseUrl;
+      if (_modelController.text.trim().isEmpty) {
+        _modelController.text = preset.defaultModel;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     _loadSettings();
@@ -240,7 +295,24 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _kAiProviderPresets.map((preset) {
+              final isActive =
+                  _baseUrlController.text.trim() == preset.baseUrl;
+              return ActionChip(
+                avatar: isActive
+                    ? Icon(Icons.check,
+                        size: 18, color: theme.colorScheme.primary)
+                    : null,
+                label: Text(preset.name),
+                onPressed: () => _applyPreset(preset),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _baseUrlController,
             decoration: const InputDecoration(
