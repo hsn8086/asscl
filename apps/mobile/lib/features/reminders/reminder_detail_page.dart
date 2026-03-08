@@ -87,6 +87,7 @@ class ReminderDetailPage extends ConsumerWidget {
                   } else {
                     await ns.cancel(reminder.id);
                   }
+                  ref.invalidate(reminderDetailProvider(reminder.id));
                 },
               ),
             ],
