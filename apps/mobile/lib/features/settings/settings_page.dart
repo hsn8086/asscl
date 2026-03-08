@@ -173,6 +173,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
 
+          // ── 其他 ──
+          _SectionHeader('其他'),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                _NavTile(
+                  icon: Icons.developer_mode,
+                  title: '开发者选项',
+                  subtitle: '调试工具和诊断信息',
+                  onTap: () => context.push('/settings/developer'),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 32),
         ],
       ),

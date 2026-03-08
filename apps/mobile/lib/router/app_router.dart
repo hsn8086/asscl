@@ -16,6 +16,7 @@ import '../features/settings/ai_config_page.dart';
 import '../features/settings/proxy_settings_page.dart';
 import '../features/settings/weather_settings_page.dart';
 import '../features/settings/webdav_settings_page.dart';
+import '../features/settings/developer_page.dart';
 import '../features/tasks/tasks_page.dart';
 import '../features/tasks/task_detail_page.dart';
 import '../features/tasks/task_form_page.dart';
@@ -104,6 +105,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'webdav',
             parentNavigatorKey: _rootNavigatorKey,
             builder: (_, __) => const WebDavSettingsPage(),
+          ),
+          GoRoute(
+            path: 'developer',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (_, __) => const DeveloperPage(),
           ),
         ],
       ),
