@@ -146,7 +146,6 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
                   ),
               ],
             ),
-            const Divider(height: 1),
             for (int period = 1; period <= totalPeriods; period++)
               Row(
                 children: [
