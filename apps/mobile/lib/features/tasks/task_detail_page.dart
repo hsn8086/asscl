@@ -82,7 +82,18 @@ class TaskDetailPage extends ConsumerWidget {
                   CheckboxListTile(
                     value: sub.isDone,
                     title: Text(sub.title),
-                    onChanged: null,
+                    onChanged: (value) async {
+                      final updated = task.copyWith(
+                        subtasks: task.subtasks
+                            .map((s) => s.id == sub.id
+                                ? s.copyWith(isDone: value ?? false)
+                                : s)
+                            .toList(),
+                        updatedAt: DateTime.now(),
+                      );
+                      await ref.read(taskRepositoryProvider).save(updated);
+                      ref.invalidate(taskDetailProvider(taskId));
+                    },
                   ),
               ],
             ],

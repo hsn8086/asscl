@@ -33,7 +33,7 @@ jobs:
       - name: Analyze presentation
         run: cd packages/presentation && flutter analyze --fatal-infos
       - name: Analyze mobile
-        run: cd apps/mobile && flutter analyze
+        run: cd apps/mobile && flutter analyze --fatal-infos
 
   test:
     name: Test
