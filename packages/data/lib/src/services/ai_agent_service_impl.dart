@@ -521,8 +521,10 @@ class AiAgentServiceImpl implements AiAgentService {
     _cancelled = false;
     try {
       _ensureSystemPrompt(extraPrompt);
-      _history
-          .add({'role': 'user', 'content': _buildUserContent(text, images)});
+      if (text != null || images.isNotEmpty) {
+        _history.add(
+            {'role': 'user', 'content': _buildUserContent(text, images)});
+      }
 
       final body = jsonEncode(_buildRequestBody());
 
@@ -599,8 +601,10 @@ class AiAgentServiceImpl implements AiAgentService {
 
     try {
       _ensureSystemPrompt(extraPrompt);
-      _history
-          .add({'role': 'user', 'content': _buildUserContent(text, images)});
+      if (text != null || images.isNotEmpty) {
+        _history.add(
+            {'role': 'user', 'content': _buildUserContent(text, images)});
+      }
 
       final request = http.Request('POST', Uri.parse(config.apiEndpoint));
       request.headers['Content-Type'] = 'application/json';
