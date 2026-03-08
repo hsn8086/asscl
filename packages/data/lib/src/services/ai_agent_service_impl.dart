@@ -8,10 +8,12 @@ import 'ai_import_service_impl.dart' show AiImportConfig;
 
 class AiAgentServiceImpl implements AiAgentService {
   final AiImportConfig config;
-  http.Client _client;
+  final http.Client _client;
   final List<Map<String, dynamic>> _history = [];
   bool _isBusy = false;
   bool _cancelled = false;
+  /// Per-request client used for streaming; closed on cancel.
+  http.Client? _activeStreamClient;
 
   static const _systemPrompt = '''
 你是一个课程表管理助手 (AI Agent)。你可以帮助用户：
@@ -531,7 +533,10 @@ class AiAgentServiceImpl implements AiAgentService {
         'stream': true,
       });
 
-      final streamedResponse = await _client.send(request);
+      // Use a per-request client so cancel() can close it without
+      // affecting the shared _client.
+      _activeStreamClient = http.Client();
+      final streamedResponse = await _activeStreamClient!.send(request);
 
       if (streamedResponse.statusCode != 200) {
         final body = await streamedResponse.stream.bytesToString();
@@ -634,6 +639,8 @@ class AiAgentServiceImpl implements AiAgentService {
 
       yield const ChatStreamDelta(isDone: true);
     } finally {
+      _activeStreamClient?.close();
+      _activeStreamClient = null;
       _isBusy = false;
     }
   }
@@ -651,8 +658,8 @@ class AiAgentServiceImpl implements AiAgentService {
   void cancel() {
     _cancelled = true;
     if (_isBusy) {
-      _client.close();
-      _client = http.Client();
+      _activeStreamClient?.close();
+      _activeStreamClient = null;
       _isBusy = false;
       if (_history.isNotEmpty && _history.last['role'] == 'user') {
         _history.removeLast();
