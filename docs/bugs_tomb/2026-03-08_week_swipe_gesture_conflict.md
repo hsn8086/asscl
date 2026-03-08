@@ -20,16 +20,29 @@
 
 ## 修复方案
 
+分两步修复：
+
+### 第一步：外层改用 PageView
+
 将外层 `GestureDetector` + 子视图模式替换为 `PageView.builder`：
 
-- `PageView` 天然支持左右滑动翻页，不与子视图的内部滚动冲突
+- `PageView` 天然支持左右滑动翻页
 - `onPageChanged` 回调同步更新 `selectedWeekProvider`
-- AppBar 箭头按钮通过 `PageController.animateToPage` 同步页面
+- AppBar 箭头按钮通过 `ref.listenManual` + `PageController.animateToPage` 同步页面
+- 每页传递各自的 `weekNumber` 参数给子视图
 
-变更文件：`apps/mobile/lib/features/schedule/schedule_page.dart`
-- `ConsumerWidget` → `ConsumerStatefulWidget`（持有 `PageController`）
-- body 从 `GestureDetector` 改为 `PageView.builder`
-- 按钮/芯片切换周时通过 `addPostFrameCallback` 同步 PageView 位置
+变更文件：
+- `apps/mobile/lib/features/schedule/schedule_page.dart`
+- `apps/mobile/lib/features/schedule/widgets/week_grid_view.dart`
+- `apps/mobile/lib/features/schedule/widgets/time_stream_view.dart`
+
+### 第二步：移除内部水平 ScrollView
+
+仅用 `PageView` 仍不够 —— `WeekGridView` 内部的 `SingleChildScrollView(scrollDirection: Axis.horizontal)` 仍会在手势竞技场中与 `PageView` 冲突并优先消费水平拖拽事件。
+
+移除内部水平 `SingleChildScrollView`，格子宽度直接按屏幕宽度等分（去掉 `cellWidth.clamp(48.0, 80.0)` 的最小值 clamp），确保内容不超出屏幕。
+
+变更文件：`apps/mobile/lib/features/schedule/widgets/week_grid_view.dart`
 
 ## 验证方式
 
@@ -43,3 +56,4 @@
 
 - 避免在含有可滚动子视图的场景中使用外层 `GestureDetector` 检测同方向拖拽
 - 需要翻页式交互时优先使用 `PageView`
+- **同方向嵌套可滚动组件**（如 PageView 内含水平 ScrollView）会导致手势冲突，内层总是优先消费。要么移除内层滚动，要么确保内层使用 `NeverScrollableScrollPhysics`
