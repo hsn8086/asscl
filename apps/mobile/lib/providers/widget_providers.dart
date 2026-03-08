@@ -17,13 +17,15 @@ final widgetServiceProvider = Provider<WidgetService>((ref) {
 /// the active semester has been resolved (which would cause all-semester data
 /// to be pushed to the home-screen widget).
 Future<void> refreshWidgets(dynamic ref) async {
-  // Wait for the semester stream to emit at least one value.
+  // Wait for both streams to emit at least one value to avoid race conditions
+  // where semestersProvider hasn't loaded yet, causing empty semester name and
+  // wrong week number.
   final activeId = await ref.read(activeSemesterIdProvider.future);
-  final semesters = ref.read(semestersProvider).valueOrNull ?? [];
+  final semesters = await ref.read(semestersProvider.future);
   final semester = activeId == null
       ? null
       : semesters.where((s) => s.id == activeId).firstOrNull;
-  final week = ref.read(currentWeekProvider);
+  final week = semester?.currentWeek() ?? 1;
   ref.read(widgetServiceProvider).updateWidgets(
         semesterName: semester?.name ?? '',
         semesterId: activeId,
