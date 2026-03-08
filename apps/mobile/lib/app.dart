@@ -47,7 +47,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       title: '课程表',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      routerConfig: routerProvider,
+      routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
     );
   }
