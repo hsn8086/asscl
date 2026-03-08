@@ -59,11 +59,11 @@ class WidgetService {
 
     await HomeWidget.updateWidget(
       androidName: 'NextClassWidgetProvider',
-      qualifiedAndroidName: 'com.asscl.asscl.NextClassWidgetProvider',
+      qualifiedAndroidName: 'com.hsn8086.asscl.NextClassWidgetProvider',
     );
     await HomeWidget.updateWidget(
       androidName: 'TodayScheduleWidgetProvider',
-      qualifiedAndroidName: 'com.asscl.asscl.TodayScheduleWidgetProvider',
+      qualifiedAndroidName: 'com.hsn8086.asscl.TodayScheduleWidgetProvider',
     );
   }
 

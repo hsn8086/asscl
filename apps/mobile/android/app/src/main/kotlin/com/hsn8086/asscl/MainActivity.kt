@@ -1,4 +1,4 @@
-package com.asscl.asscl
+package com.hsn8086.asscl
 
 import io.flutter.embedding.android.FlutterActivity
 
