@@ -1,3 +1,4 @@
+import 'package:domain/domain.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,11 +20,18 @@ final widgetServiceProvider = Provider<WidgetService>((ref) {
 /// to be pushed to the home-screen widget).
 Future<void> refreshWidgets(dynamic ref) async {
   try {
-    final activeId = await ref.read(activeSemesterIdProvider.future);
-    final semesters = await ref.read(semestersProvider.future);
-    final semester = activeId == null
-        ? null
-        : semesters.where((s) => s.id == activeId).firstOrNull;
+    final activeId = await ref.read(activeSemesterIdProvider.future) as String?;
+    final List<Semester> semesters =
+        await ref.read(semestersProvider.future) as List<Semester>;
+    Semester? semester;
+    if (activeId != null) {
+      for (final s in semesters) {
+        if (s.id == activeId) {
+          semester = s;
+          break;
+        }
+      }
+    }
     final week = semester?.currentWeek() ?? 1;
     debugPrint('[Widget] refreshWidgets: activeId=$activeId, '
         'semester=${semester?.name}, week=$week, '

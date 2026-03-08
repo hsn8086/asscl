@@ -38,7 +38,10 @@ final activeSemesterProvider = Provider<Semester?>((ref) {
   final semesters = ref.watch(semestersProvider).valueOrNull ?? [];
   final activeId = ref.watch(activeSemesterIdProvider).valueOrNull;
   if (activeId == null || semesters.isEmpty) return null;
-  return semesters.where((s) => s.id == activeId).firstOrNull;
+  for (final s in semesters) {
+    if (s.id == activeId) return s;
+  }
+  return null;
 });
 
 /// The "real" current week based on semester start date.

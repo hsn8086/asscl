@@ -48,8 +48,9 @@ class _PeriodConfigPageState extends ConsumerState<PeriodConfigPage> {
   }
 
   Future<void> _editPeriodTime(int periodNumber) async {
-    final existing =
-        _periods.where((p) => p.periodNumber == periodNumber).firstOrNull;
+    final existing = _periods.cast<PeriodTime?>().firstWhere(
+        (p) => p!.periodNumber == periodNumber,
+        orElse: () => null);
 
     final startTime = await showTimePicker(
       context: context,
@@ -150,9 +151,9 @@ class _PeriodConfigPageState extends ConsumerState<PeriodConfigPage> {
               const SizedBox(height: 8),
               ...List.generate(_totalPeriods, (i) {
                 final periodNum = i + 1;
-                final pt = _periods
-                    .where((p) => p.periodNumber == periodNum)
-                    .firstOrNull;
+                final pt = _periods.cast<PeriodTime?>().firstWhere(
+                    (p) => p!.periodNumber == periodNum,
+                    orElse: () => null);
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text('第$periodNum节'),

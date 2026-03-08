@@ -546,8 +546,9 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       final config = ref.read(periodConfigProvider).valueOrNull;
       String? extraPrompt;
       if (config?.presetId != null) {
-        final preset =
-            kSchoolPresets.where((p) => p.id == config!.presetId).firstOrNull;
+        final preset = kSchoolPresets.cast<SchoolPreset?>().firstWhere(
+            (p) => p!.id == config!.presetId,
+            orElse: () => null);
         extraPrompt = preset?.aiPromptHint;
       }
 
@@ -2093,8 +2094,9 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                   children: msg.toolCalls!
                       .map((tc) {
                         final ptc = msg.pendingToolCalls
-                            .where((p) => p.id == tc.id)
-                            .firstOrNull;
+                            .cast<_PendingToolCall?>()
+                            .firstWhere((p) => p!.id == tc.id,
+                                orElse: () => null);
                         return _buildToolCallChip(tc, ptc, theme);
                       })
                       .toList(),

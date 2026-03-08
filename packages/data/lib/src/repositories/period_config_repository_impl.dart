@@ -62,7 +62,9 @@ class PeriodConfigRepositoryImpl implements PeriodConfigRepository {
 
   @override
   Future<void> applyPreset(String presetId) async {
-    final preset = kSchoolPresets.where((p) => p.id == presetId).firstOrNull;
+    final preset = kSchoolPresets.cast<SchoolPreset?>().firstWhere(
+        (p) => p!.id == presetId,
+        orElse: () => null);
     if (preset == null) return;
     await saveConfig(PeriodConfig(
       totalPeriods: preset.totalPeriods,
