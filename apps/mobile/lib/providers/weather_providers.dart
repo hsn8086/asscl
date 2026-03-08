@@ -20,6 +20,66 @@ final weatherServiceProvider = Provider<WeatherService>((ref) {
   return WeatherServiceImpl(client: client);
 });
 
+/// 获取当前天气数据，供开屏提醒卡片使用
+final currentWeatherProvider = FutureProvider<WeatherInfo?>((ref) async {
+  final enabled = await ref.watch(weatherEnabledProvider.future);
+  if (!enabled) return null;
+
+  final permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    return null;
+  }
+
+  final position = await Geolocator.getCurrentPosition(
+    locationSettings: const LocationSettings(
+      accuracy: LocationAccuracy.low,
+      timeLimit: Duration(seconds: 10),
+    ),
+  );
+
+  final service = ref.watch(weatherServiceProvider);
+  return service.getWeather(position.latitude, position.longitude);
+});
+
+/// 天气提醒条件配置
+class WeatherAlertConfig {
+  final bool alertRain;
+  final bool alertSnow;
+  final bool alertHighTemp;
+  final double highTempThreshold;
+  final bool alertLowTemp;
+  final double lowTempThreshold;
+
+  const WeatherAlertConfig({
+    this.alertRain = true,
+    this.alertSnow = true,
+    this.alertHighTemp = true,
+    this.highTempThreshold = 35,
+    this.alertLowTemp = true,
+    this.lowTempThreshold = 0,
+  });
+}
+
+final weatherAlertConfigProvider = FutureProvider<WeatherAlertConfig>((ref) async {
+  final db = ref.watch(appDatabaseProvider);
+  final dao = SettingsDao(db);
+  final alertRain = await dao.getValue('weatherAlertRain');
+  final alertSnow = await dao.getValue('weatherAlertSnow');
+  final alertHighTemp = await dao.getValue('weatherAlertHighTemp');
+  final highTempThreshold = await dao.getValue('weatherAlertHighTempThreshold');
+  final alertLowTemp = await dao.getValue('weatherAlertLowTemp');
+  final lowTempThreshold = await dao.getValue('weatherAlertLowTempThreshold');
+  return WeatherAlertConfig(
+    alertRain: alertRain != 'false',
+    alertSnow: alertSnow != 'false',
+    alertHighTemp: alertHighTemp != 'false',
+    highTempThreshold: double.tryParse(highTempThreshold ?? '') ?? 35,
+    alertLowTemp: alertLowTemp != 'false',
+    lowTempThreshold: double.tryParse(lowTempThreshold ?? '') ?? 0,
+  );
+});
+
 /// 获取当前上下文（时间 + 位置 + 天气），供 AI 工具调用
 Future<String> fetchCurrentContext({
   required bool weatherEnabled,

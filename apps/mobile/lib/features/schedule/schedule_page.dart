@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/semester_providers.dart';
 import '../../providers/view_providers.dart';
+import 'widgets/weather_alert_card.dart';
 import 'widgets/week_grid_view.dart';
 import 'widgets/time_stream_view.dart';
 
@@ -170,18 +171,25 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           ),
         ],
       ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: maxWeek,
-        onPageChanged: (index) {
-          ref.read(selectedWeekProvider.notifier).state = index + 1;
-        },
-        itemBuilder: (context, index) {
-          final week = index + 1;
-          return viewType == ViewType.weekGrid
-              ? WeekGridView(weekNumber: week)
-              : TimeStreamView(weekNumber: week);
-        },
+      body: Column(
+        children: [
+          const WeatherAlertCard(),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: maxWeek,
+              onPageChanged: (index) {
+                ref.read(selectedWeekProvider.notifier).state = index + 1;
+              },
+              itemBuilder: (context, index) {
+                final week = index + 1;
+                return viewType == ViewType.weekGrid
+                    ? WeekGridView(weekNumber: week)
+                    : TimeStreamView(weekNumber: week);
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/schedule/course/new'),
