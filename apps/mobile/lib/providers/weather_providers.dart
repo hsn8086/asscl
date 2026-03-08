@@ -14,10 +14,22 @@ final weatherEnabledProvider = FutureProvider<bool>((ref) async {
   return val == 'true';
 });
 
-/// WeatherService 实例
-final weatherServiceProvider = Provider<WeatherService>((ref) {
+/// 天气数据源设置（wttr / openmeteo / 7timer）
+final weatherSourceProvider = FutureProvider<String>((ref) async {
+  final db = ref.watch(appDatabaseProvider);
+  final val = await SettingsDao(db).getValue('weatherSource');
+  return val ?? 'wttr';
+});
+
+/// WeatherService 实例，根据 weatherSource 设置选择实现
+final weatherServiceProvider = FutureProvider<WeatherService>((ref) async {
   final client = ref.watch(httpClientProvider);
-  return WeatherServiceImpl(client: client);
+  final source = await ref.watch(weatherSourceProvider.future);
+  return switch (source) {
+    'openmeteo' => OpenMeteoWeatherService(client: client),
+    '7timer' => SevenTimerWeatherService(client: client),
+    _ => WeatherServiceImpl(client: client),
+  };
 });
 
 /// 获取当前天气数据，供开屏提醒卡片使用
@@ -38,7 +50,7 @@ final currentWeatherProvider = FutureProvider<WeatherInfo?>((ref) async {
     ),
   );
 
-  final service = ref.watch(weatherServiceProvider);
+  final service = await ref.watch(weatherServiceProvider.future);
   return service.getWeather(position.latitude, position.longitude);
 });
 

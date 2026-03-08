@@ -33,6 +33,8 @@ export 'src/services/ai_import_service_impl.dart';
 export 'src/services/ai_agent_service_impl.dart';
 export 'src/services/telegram_bot_service.dart';
 export 'src/services/weather_service_impl.dart';
+export 'src/services/open_meteo_weather_service.dart';
+export 'src/services/seven_timer_weather_service.dart';
 export 'src/services/stt_service_impl.dart';
 export 'src/services/multimodal_stt_service_impl.dart';
 export 'src/services/webdav_service.dart';

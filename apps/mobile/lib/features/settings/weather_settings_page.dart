@@ -16,6 +16,7 @@ class WeatherSettingsPage extends ConsumerStatefulWidget {
 
 class _WeatherSettingsPageState extends ConsumerState<WeatherSettingsPage> {
   bool _weatherEnabled = false;
+  String _weatherSource = 'wttr';
   bool _alertRain = true;
   bool _alertSnow = true;
   bool _alertHighTemp = true;
@@ -30,6 +31,7 @@ class _WeatherSettingsPageState extends ConsumerState<WeatherSettingsPage> {
     final db = ref.read(appDatabaseProvider);
     final dao = SettingsDao(db);
     final enabled = await dao.getValue('weatherEnabled');
+    final source = await dao.getValue('weatherSource');
     final rain = await dao.getValue('weatherAlertRain');
     final snow = await dao.getValue('weatherAlertSnow');
     final highTemp = await dao.getValue('weatherAlertHighTemp');
@@ -39,6 +41,7 @@ class _WeatherSettingsPageState extends ConsumerState<WeatherSettingsPage> {
     if (mounted) {
       setState(() {
         _weatherEnabled = enabled == 'true';
+        _weatherSource = source ?? 'wttr';
         _alertRain = rain != 'false';
         _alertSnow = snow != 'false';
         _alertHighTemp = highTemp != 'false';
@@ -70,6 +73,17 @@ class _WeatherSettingsPageState extends ConsumerState<WeatherSettingsPage> {
     await dao.setValue('weatherEnabled', value.toString());
     ref.invalidate(weatherEnabledProvider);
     setState(() => _weatherEnabled = value);
+  }
+
+  Future<void> _setSource(String? value) async {
+    if (value == null) return;
+    final db = ref.read(appDatabaseProvider);
+    final dao = SettingsDao(db);
+    await dao.setValue('weatherSource', value);
+    ref.invalidate(weatherSourceProvider);
+    ref.invalidate(weatherServiceProvider);
+    ref.invalidate(currentWeatherProvider);
+    setState(() => _weatherSource = value);
   }
 
   Future<void> _toggleAlert(
@@ -110,6 +124,40 @@ class _WeatherSettingsPageState extends ConsumerState<WeatherSettingsPage> {
             ),
           ),
           if (_weatherEnabled) ...[
+            const SizedBox(height: 16),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const ListTile(
+                    leading: Icon(Icons.dns),
+                    title: Text('数据源'),
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('wttr.in'),
+                    subtitle: const Text('默认，中文天气描述'),
+                    value: 'wttr',
+                    groupValue: _weatherSource,
+                    onChanged: _setSource,
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('Open-Meteo'),
+                    subtitle: const Text('高精度，更新频繁'),
+                    value: 'openmeteo',
+                    groupValue: _weatherSource,
+                    onChanged: _setSource,
+                  ),
+                  RadioListTile<String>(
+                    title: const Text('7Timer'),
+                    subtitle: const Text('NOAA GFS 模型'),
+                    value: '7timer',
+                    groupValue: _weatherSource,
+                    onChanged: _setSource,
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
             Card(
               clipBehavior: Clip.antiAlias,

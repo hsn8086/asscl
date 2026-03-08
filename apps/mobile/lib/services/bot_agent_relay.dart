@@ -162,7 +162,7 @@ class BotAgentRelay {
         case 'get_current_context':
           return fetchCurrentContext(
             weatherEnabled: _ref.read(weatherEnabledProvider).valueOrNull ?? false,
-            weatherService: _ref.read(weatherServiceProvider),
+            weatherService: await _ref.read(weatherServiceProvider.future),
           );
         case 'get_time':
           final now = DateTime.now();

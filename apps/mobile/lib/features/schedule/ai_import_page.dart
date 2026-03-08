@@ -1083,7 +1083,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     try {
       final result = await fetchCurrentContext(
         weatherEnabled: ref.read(weatherEnabledProvider).valueOrNull ?? false,
-        weatherService: ref.read(weatherServiceProvider),
+        weatherService: await ref.read(weatherServiceProvider.future),
       );
       agent.addToolResult(tc.id, result);
       ptc.status = _ToolCallStatus.confirmed;
