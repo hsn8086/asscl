@@ -27,6 +27,8 @@ class WeekGridView extends ConsumerStatefulWidget {
 class _WeekGridViewState extends ConsumerState<WeekGridView> {
   late Timer _timer;
   DateTime _now = DateTime.now();
+  double _verticalScale = 1.0;
+  double _scaleStart = 1.0;
 
   @override
   void initState() {
@@ -80,9 +82,9 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
             final totalPeriods = config.totalPeriods;
             final availableHeight = constraints.maxHeight;
 
-            // Calculate adaptive cell height.
+            // Calculate adaptive cell height with vertical scale.
             var cellHeight =
-                (availableHeight - _headerHeight) / totalPeriods;
+                (availableHeight - _headerHeight) / totalPeriods * _verticalScale;
             cellHeight = cellHeight.clamp(_minCellHeight, _maxCellHeight);
 
             final gridHeight = _headerHeight + cellHeight * totalPeriods;
@@ -95,9 +97,14 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
               grid = SingleChildScrollView(child: grid);
             }
 
-            return InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 2.5,
+            return GestureDetector(
+              onScaleStart: (_) => _scaleStart = _verticalScale,
+              onScaleUpdate: (details) {
+                setState(() {
+                  _verticalScale = (_scaleStart * details.verticalScale)
+                      .clamp(0.5, 2.5);
+                });
+              },
               child: grid,
             );
           },
