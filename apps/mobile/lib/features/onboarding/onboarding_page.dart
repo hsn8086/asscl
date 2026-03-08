@@ -162,6 +162,19 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       }
       await sync.downloadRestore();
       _showSnackBar('数据恢复成功');
+
+      // If the backup contained AI config, skip the AI page.
+      final aiBase = await dao.getValue('aiBaseUrl');
+      final aiKey = await dao.getValue('aiApiKey');
+      if (aiBase != null && aiBase.isNotEmpty &&
+          aiKey != null && aiKey.isNotEmpty) {
+        if (mounted) {
+          await dao.setValue('onboardingCompleted', 'true');
+          ref.invalidate(onboardingCompletedProvider);
+          context.go('/schedule');
+        }
+        return;
+      }
     } catch (e) {
       _showSnackBar('恢复失败: $e');
     } finally {
