@@ -27,7 +27,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   bool _webdavBusy = false;
 
   // AI fields
-  final _aiEndpointController = TextEditingController();
+  final _aiBaseUrlController = TextEditingController();
   final _aiApiKeyController = TextEditingController();
   final _aiModelController = TextEditingController();
 
@@ -38,7 +38,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     _webdavUsernameController.dispose();
     _webdavPasswordController.dispose();
     _webdavPathController.dispose();
-    _aiEndpointController.dispose();
+    _aiBaseUrlController.dispose();
     _aiApiKeyController.dispose();
     _aiModelController.dispose();
     super.dispose();
@@ -56,15 +56,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final db = ref.read(appDatabaseProvider);
     final dao = SettingsDao(db);
 
-    final endpoint = _aiEndpointController.text.trim();
+    final baseUrl = _aiBaseUrlController.text.trim();
     final key = _aiApiKeyController.text.trim();
     final model = _aiModelController.text.trim();
 
-    if (endpoint.isNotEmpty) await dao.setValue('aiApiEndpoint', endpoint);
+    if (baseUrl.isNotEmpty) await dao.setValue('aiBaseUrl', baseUrl);
     if (key.isNotEmpty) await dao.setValue('aiApiKey', key);
     if (model.isNotEmpty) await dao.setValue('aiModelName', model);
 
-    if (endpoint.isNotEmpty || key.isNotEmpty) {
+    if (baseUrl.isNotEmpty || key.isNotEmpty) {
       ref.invalidate(aiConfigProvider);
     }
 
@@ -397,10 +397,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         const SizedBox(height: 24),
 
         TextFormField(
-          controller: _aiEndpointController,
+          controller: _aiBaseUrlController,
           decoration: const InputDecoration(
-            labelText: 'API Endpoint',
-            hintText: 'https://api.openai.com/v1/chat/completions',
+            labelText: 'API Base URL',
+            hintText: 'https://api.openai.com/v1',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.link),
           ),

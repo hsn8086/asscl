@@ -529,7 +529,7 @@ class AiAgentServiceImpl implements AiAgentService {
       final body = jsonEncode(_buildRequestBody());
 
       final response = await _client.post(
-        Uri.parse(config.apiEndpoint),
+        Uri.parse(config.chatCompletionsUrl),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${config.apiKey}',
@@ -606,7 +606,7 @@ class AiAgentServiceImpl implements AiAgentService {
             {'role': 'user', 'content': _buildUserContent(text, images)});
       }
 
-      final request = http.Request('POST', Uri.parse(config.apiEndpoint));
+      final request = http.Request('POST', Uri.parse(config.chatCompletionsUrl));
       request.headers['Content-Type'] = 'application/json';
       request.headers['Authorization'] = 'Bearer ${config.apiKey}';
       request.body = jsonEncode({

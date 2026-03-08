@@ -4,26 +4,28 @@ import 'package:domain/domain.dart';
 import 'package:http/http.dart' as http;
 
 class AiImportConfig {
-  final String apiEndpoint;
+  final String baseUrl;
   final String apiKey;
   final String? modelName;
 
   const AiImportConfig({
-    required this.apiEndpoint,
+    required this.baseUrl,
     required this.apiKey,
     this.modelName,
   });
+
+  String get chatCompletionsUrl => '$baseUrl/chat/completions';
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is AiImportConfig &&
-          apiEndpoint == other.apiEndpoint &&
+          baseUrl == other.baseUrl &&
           apiKey == other.apiKey &&
           modelName == other.modelName;
 
   @override
-  int get hashCode => Object.hash(apiEndpoint, apiKey, modelName);
+  int get hashCode => Object.hash(baseUrl, apiKey, modelName);
 }
 
 class AiImportServiceImpl implements AiImportService {
@@ -68,7 +70,7 @@ class AiImportServiceImpl implements AiImportService {
     });
 
     final response = await _client.post(
-      Uri.parse(config.apiEndpoint),
+      Uri.parse(config.chatCompletionsUrl),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${config.apiKey}',

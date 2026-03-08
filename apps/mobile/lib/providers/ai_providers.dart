@@ -12,12 +12,35 @@ import 'proxy_providers.dart';
 final aiConfigProvider = FutureProvider<AiImportConfig?>((ref) async {
   final db = ref.watch(appDatabaseProvider);
   final dao = SettingsDao(db);
-  final endpoint = await dao.getValue('aiApiEndpoint');
+
+  // Try new key first, then fall back to legacy key with migration.
+  var baseUrl = await dao.getValue('aiBaseUrl');
+  if (baseUrl == null) {
+    final legacy = await dao.getValue('aiApiEndpoint');
+    if (legacy != null) {
+      // Strip trailing path segments (e.g. /chat/completions).
+      baseUrl = extractBaseUrl(legacy);
+      await dao.setValue('aiBaseUrl', baseUrl);
+      await dao.deleteKey('aiApiEndpoint');
+    }
+  }
+
   final key = await dao.getValue('aiApiKey');
-  if (endpoint == null || key == null) return null;
+  if (baseUrl == null || key == null) return null;
   final model = await dao.getValue('aiModelName');
-  return AiImportConfig(apiEndpoint: endpoint, apiKey: key, modelName: model);
+  return AiImportConfig(baseUrl: baseUrl, apiKey: key, modelName: model);
 });
+
+/// Extract base URL from a full endpoint URL.
+/// e.g. `https://api.openai.com/v1/chat/completions` → `https://api.openai.com/v1`
+String extractBaseUrl(String endpoint) {
+  final chatIdx = endpoint.indexOf('/chat/completions');
+  if (chatIdx != -1) return endpoint.substring(0, chatIdx);
+  final audioIdx = endpoint.indexOf('/audio/transcriptions');
+  if (audioIdx != -1) return endpoint.substring(0, audioIdx);
+  // If it already looks like a base URL, use as-is.
+  return endpoint.endsWith('/') ? endpoint.substring(0, endpoint.length - 1) : endpoint;
+}
 
 final aiImportServiceProvider = Provider<AiImportService?>((ref) {
   final config = ref.watch(aiConfigProvider).valueOrNull;

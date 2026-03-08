@@ -146,7 +146,7 @@ class ShortenedCourseNamesNotifier
             .join('\n');
 
         final response = await client.post(
-          Uri.parse(config.apiEndpoint),
+          Uri.parse(config.chatCompletionsUrl),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${config.apiKey}',

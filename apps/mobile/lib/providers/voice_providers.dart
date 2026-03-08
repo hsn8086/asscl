@@ -11,11 +11,13 @@ class VoiceConfig {
   final String endpoint;
   final String apiKey;
   final String model;
+  final bool isMultimodal;
 
   const VoiceConfig({
     required this.endpoint,
     required this.apiKey,
     required this.model,
+    this.isMultimodal = false,
   });
 }
 
@@ -26,6 +28,13 @@ final voiceEnabledProvider = FutureProvider<bool>((ref) async {
   return val == 'true';
 });
 
+/// Voice mode: 'whisper' (default) or 'multimodal'.
+final voiceModeProvider = FutureProvider<String>((ref) async {
+  final db = ref.watch(appDatabaseProvider);
+  final val = await SettingsDao(db).getValue('voiceMode');
+  return val ?? 'whisper';
+});
+
 /// Voice configuration (endpoint, key, model).
 /// Returns null if voice is disabled or not configured.
 final voiceConfigProvider = FutureProvider<VoiceConfig?>((ref) async {
@@ -34,18 +43,32 @@ final voiceConfigProvider = FutureProvider<VoiceConfig?>((ref) async {
 
   final db = ref.watch(appDatabaseProvider);
   final dao = SettingsDao(db);
+  final mode = await ref.watch(voiceModeProvider.future);
+  final isMultimodal = mode == 'multimodal';
 
   final sameAsAgent = await dao.getValue('voiceSameAsAgent');
+
+  if (isMultimodal) {
+    // Multimodal mode: use chat completions endpoint with the main model.
+    final aiConfig = ref.watch(aiConfigProvider).valueOrNull;
+    if (aiConfig == null) return null;
+    return VoiceConfig(
+      endpoint: aiConfig.chatCompletionsUrl,
+      apiKey: aiConfig.apiKey,
+      model: aiConfig.modelName ?? 'gpt-4o-mini',
+      isMultimodal: true,
+    );
+  }
+
+  // Whisper mode: needs a model name.
   final modelName = await dao.getValue('voiceModelName');
   if (modelName == null || modelName.isEmpty) return null;
 
   if (sameAsAgent == 'true') {
-    // Derive from agent config.
     final aiConfig = ref.watch(aiConfigProvider).valueOrNull;
     if (aiConfig == null) return null;
-    final endpoint = deriveTranscriptionUrl(aiConfig.apiEndpoint);
     return VoiceConfig(
-      endpoint: endpoint,
+      endpoint: '${aiConfig.baseUrl}/audio/transcriptions',
       apiKey: aiConfig.apiKey,
       model: modelName,
     );
@@ -64,11 +87,21 @@ final voiceConfigProvider = FutureProvider<VoiceConfig?>((ref) async {
   }
 });
 
-/// SttService instance.
+/// SttService instance — uses either Whisper API or multimodal chat.
 final sttServiceProvider = Provider<SttService?>((ref) {
   final config = ref.watch(voiceConfigProvider).valueOrNull;
   if (config == null) return null;
   final client = ref.watch(httpClientProvider);
+
+  if (config.isMultimodal) {
+    return MultimodalSttServiceImpl(
+      chatCompletionsUrl: config.endpoint,
+      apiKey: config.apiKey,
+      model: config.model,
+      client: client,
+    );
+  }
+
   return SttServiceImpl(
     endpoint: config.endpoint,
     apiKey: config.apiKey,
@@ -76,13 +109,3 @@ final sttServiceProvider = Provider<SttService?>((ref) {
     client: client,
   );
 });
-
-/// Derive the transcription URL from a chat completions URL.
-///
-/// E.g. `https://api.openai.com/v1/chat/completions`
-///    → `https://api.openai.com/v1/audio/transcriptions`
-String deriveTranscriptionUrl(String chatEndpoint) {
-  final v1Idx = chatEndpoint.indexOf('/v1/');
-  if (v1Idx == -1) return chatEndpoint;
-  return '${chatEndpoint.substring(0, v1Idx)}/v1/audio/transcriptions';
-}

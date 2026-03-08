@@ -14,7 +14,7 @@ class AiConfigPage extends ConsumerStatefulWidget {
 }
 
 class _AiConfigPageState extends ConsumerState<AiConfigPage> {
-  final _endpointController = TextEditingController();
+  final _baseUrlController = TextEditingController();
   final _apiKeyController = TextEditingController();
   final _modelController = TextEditingController();
 
@@ -24,12 +24,13 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
   final _voiceModelController = TextEditingController();
   bool _voiceEnabled = false;
   bool _voiceSameAsAgent = true;
+  String _voiceMode = 'whisper'; // 'whisper' or 'multimodal'
 
   bool _isLoaded = false;
 
   @override
   void dispose() {
-    _endpointController.dispose();
+    _baseUrlController.dispose();
     _apiKeyController.dispose();
     _modelController.dispose();
     _voiceEndpointController.dispose();
@@ -43,24 +44,35 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
     _isLoaded = true;
     final db = ref.read(appDatabaseProvider);
     final dao = SettingsDao(db);
-    final endpoint = await dao.getValue('aiApiEndpoint');
+
+    // Read base URL (or migrate from legacy key).
+    var baseUrl = await dao.getValue('aiBaseUrl');
+    if (baseUrl == null) {
+      final legacy = await dao.getValue('aiApiEndpoint');
+      if (legacy != null) {
+        baseUrl = extractBaseUrl(legacy);
+      }
+    }
+
     final key = await dao.getValue('aiApiKey');
     final model = await dao.getValue('aiModelName');
 
     // Voice settings
     final voiceEnabled = await dao.getValue('voiceEnabled');
     final voiceSameAsAgent = await dao.getValue('voiceSameAsAgent');
+    final voiceMode = await dao.getValue('voiceMode');
     final voiceEndpoint = await dao.getValue('voiceApiEndpoint');
     final voiceKey = await dao.getValue('voiceApiKey');
     final voiceModel = await dao.getValue('voiceModelName');
 
     if (mounted) {
       setState(() {
-        _endpointController.text = endpoint ?? '';
+        _baseUrlController.text = baseUrl ?? '';
         _apiKeyController.text = key ?? '';
         _modelController.text = model ?? '';
         _voiceEnabled = voiceEnabled == 'true';
         _voiceSameAsAgent = voiceSameAsAgent != 'false'; // default true
+        _voiceMode = voiceMode ?? 'whisper';
         _voiceEndpointController.text = voiceEndpoint ?? '';
         _voiceApiKeyController.text = voiceKey ?? '';
         _voiceModelController.text = voiceModel ?? '';
@@ -83,18 +95,29 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
     ref.invalidate(voiceConfigProvider);
   }
 
+  Future<void> _setVoiceMode(String mode) async {
+    setState(() => _voiceMode = mode);
+    final db = ref.read(appDatabaseProvider);
+    await SettingsDao(db).setValue('voiceMode', mode);
+    ref.invalidate(voiceModeProvider);
+    ref.invalidate(voiceConfigProvider);
+  }
+
   Future<void> _save() async {
     final db = ref.read(appDatabaseProvider);
     final dao = SettingsDao(db);
-    final endpoint = _endpointController.text.trim();
+    final baseUrl = _baseUrlController.text.trim();
     final key = _apiKeyController.text.trim();
     final model = _modelController.text.trim();
 
-    if (endpoint.isNotEmpty) {
-      await dao.setValue('aiApiEndpoint', endpoint);
+    if (baseUrl.isNotEmpty) {
+      await dao.setValue('aiBaseUrl', baseUrl);
     } else {
-      await dao.deleteKey('aiApiEndpoint');
+      await dao.deleteKey('aiBaseUrl');
     }
+    // Clean up legacy key if it exists.
+    await dao.deleteKey('aiApiEndpoint');
+
     if (key.isNotEmpty) {
       await dao.setValue('aiApiKey', key);
     } else {
@@ -109,6 +132,7 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
     // Save voice settings
     await dao.setValue('voiceEnabled', _voiceEnabled.toString());
     await dao.setValue('voiceSameAsAgent', _voiceSameAsAgent.toString());
+    await dao.setValue('voiceMode', _voiceMode);
 
     final voiceEndpoint = _voiceEndpointController.text.trim();
     final voiceKey = _voiceApiKeyController.text.trim();
@@ -132,6 +156,7 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
 
     ref.invalidate(aiConfigProvider);
     ref.invalidate(voiceEnabledProvider);
+    ref.invalidate(voiceModeProvider);
     ref.invalidate(voiceConfigProvider);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -144,6 +169,7 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
   Widget build(BuildContext context) {
     _loadSettings();
     final theme = Theme.of(context);
+    final isWhisper = _voiceMode == 'whisper';
 
     return Scaffold(
       appBar: AppBar(title: const Text('AI 配置')),
@@ -158,10 +184,10 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
           ),
           const SizedBox(height: 24),
           TextFormField(
-            controller: _endpointController,
+            controller: _baseUrlController,
             decoration: const InputDecoration(
-              labelText: 'API Endpoint',
-              hintText: 'https://api.openai.com/v1/chat/completions',
+              labelText: 'API Base URL',
+              hintText: 'https://api.openai.com/v1',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.link),
             ),
@@ -198,7 +224,7 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '录音后通过 STT 模型转为文字，支持 OpenAI 兼容接口。',
+            '录音后转为文字，可选 Whisper API 或 LLM 多模态转写。',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -211,46 +237,76 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
             onChanged: _toggleVoiceEnabled,
           ),
           if (_voiceEnabled) ...[
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('和 Agent 模型一致'),
-              subtitle: const Text('复用上方 API Endpoint 和 Key'),
-              value: _voiceSameAsAgent,
-              onChanged: _toggleVoiceSameAsAgent,
-            ),
-            if (!_voiceSameAsAgent) ...[
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _voiceEndpointController,
-                decoration: const InputDecoration(
-                  labelText: 'STT Endpoint',
-                  hintText: 'https://api.openai.com/v1/audio/transcriptions',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.link),
-                ),
-                keyboardType: TextInputType.url,
+            // Voice mode selector
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'whisper',
+                    label: Text('Whisper API'),
+                    icon: Icon(Icons.mic, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: 'multimodal',
+                    label: Text('LLM 多模态'),
+                    icon: Icon(Icons.auto_awesome, size: 18),
+                  ),
+                ],
+                selected: {_voiceMode},
+                onSelectionChanged: (s) => _setVoiceMode(s.first),
               ),
+            ),
+
+            if (isWhisper) ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('和 Agent 一致'),
+                subtitle: const Text('复用上方 Base URL 和 Key'),
+                value: _voiceSameAsAgent,
+                onChanged: _toggleVoiceSameAsAgent,
+              ),
+              if (!_voiceSameAsAgent) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _voiceEndpointController,
+                  decoration: const InputDecoration(
+                    labelText: 'STT Endpoint',
+                    hintText: 'https://api.openai.com/v1/audio/transcriptions',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.link),
+                  ),
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _voiceApiKeyController,
+                  decoration: const InputDecoration(
+                    labelText: 'STT API Key',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.key),
+                  ),
+                  obscureText: true,
+                ),
+              ],
               const SizedBox(height: 12),
               TextFormField(
-                controller: _voiceApiKeyController,
+                controller: _voiceModelController,
                 decoration: const InputDecoration(
-                  labelText: 'STT API Key',
+                  labelText: 'STT 模型名称',
+                  hintText: 'whisper-1',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.key),
+                  prefixIcon: Icon(Icons.record_voice_over),
                 ),
-                obscureText: true,
+              ),
+            ] else ...[
+              Text(
+                '多模态模式将使用上方配置的 LLM 模型直接转写音频，无需额外配置。',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _voiceModelController,
-              decoration: const InputDecoration(
-                labelText: 'STT 模型名称',
-                hintText: 'whisper-1',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.record_voice_over),
-              ),
-            ),
           ],
 
           const SizedBox(height: 24),
