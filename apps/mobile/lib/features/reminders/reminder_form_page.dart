@@ -28,6 +28,7 @@ class _ReminderFormPageState extends ConsumerState<ReminderFormPage> {
   TimeOfDay _scheduledTime = TimeOfDay.now();
   ReminderType _type = ReminderType.custom;
   bool _isLoading = false;
+  Reminder? _existingReminder;
 
   bool get _isEditing => widget.reminderId != null;
 
@@ -41,6 +42,7 @@ class _ReminderFormPageState extends ConsumerState<ReminderFormPage> {
     final reminder =
         await ref.read(reminderRepositoryProvider).findById(widget.reminderId!);
     if (reminder != null && mounted) {
+      _existingReminder = reminder;
       setState(() {
         _titleController.text = reminder.title;
         _bodyController.text = reminder.body ?? '';
@@ -80,7 +82,9 @@ class _ReminderFormPageState extends ConsumerState<ReminderFormPage> {
           : _bodyController.text.trim(),
       scheduledAt: _combinedDateTime,
       type: _type,
-      createdAt: now,
+      isActive: _existingReminder?.isActive ?? true,
+      linkedEntityId: _existingReminder?.linkedEntityId,
+      createdAt: _existingReminder?.createdAt ?? now,
       updatedAt: now,
     );
 
