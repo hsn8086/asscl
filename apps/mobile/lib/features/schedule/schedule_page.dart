@@ -7,12 +7,31 @@ import '../../providers/view_providers.dart';
 import 'widgets/week_grid_view.dart';
 import 'widgets/time_stream_view.dart';
 
-class SchedulePage extends ConsumerWidget {
+class SchedulePage extends ConsumerStatefulWidget {
   const SchedulePage({super.key});
+
+  @override
+  ConsumerState<SchedulePage> createState() => _SchedulePageState();
+}
+
+class _SchedulePageState extends ConsumerState<SchedulePage> {
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    final week = ref.read(selectedWeekProvider);
+    _pageController = PageController(initialPage: week - 1);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   Future<void> _setAsCurrentWeek(
     BuildContext context,
-    WidgetRef ref,
     int weekNumber,
   ) async {
     final semester = ref.read(activeSemesterProvider);
@@ -43,12 +62,26 @@ class SchedulePage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final viewType = ref.watch(viewTypeProvider);
     final weekNumber = ref.watch(selectedWeekProvider);
     final realWeek = ref.watch(currentWeekProvider);
     final semester = ref.watch(activeSemesterProvider);
     final maxWeek = semester?.totalWeeks ?? 30;
+
+    // Sync PageView when week changes from buttons/chips.
+    if (_pageController.hasClients &&
+        _pageController.page?.round() != weekNumber - 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.animateToPage(
+            weekNumber - 1,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -123,7 +156,7 @@ class SchedulePage extends ConsumerWidget {
             onSelected: (value) {
               switch (value) {
                 case 'set_current_week':
-                  _setAsCurrentWeek(context, ref, weekNumber);
+                  _setAsCurrentWeek(context, weekNumber);
                 case 'settings':
                   context.push('/settings');
               }
@@ -139,18 +172,17 @@ class SchedulePage extends ConsumerWidget {
           ),
         ],
       ),
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0;
-          if (velocity > 300 && weekNumber > 1) {
-            ref.read(selectedWeekProvider.notifier).state--;
-          } else if (velocity < -300 && weekNumber < maxWeek) {
-            ref.read(selectedWeekProvider.notifier).state++;
-          }
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: maxWeek,
+        onPageChanged: (index) {
+          ref.read(selectedWeekProvider.notifier).state = index + 1;
         },
-        child: viewType == ViewType.weekGrid
-            ? const WeekGridView()
-            : const TimeStreamView(),
+        itemBuilder: (context, index) {
+          return viewType == ViewType.weekGrid
+              ? const WeekGridView()
+              : const TimeStreamView();
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/schedule/course/new'),
