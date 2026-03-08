@@ -212,7 +212,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
                         hintText: '你的 Telegram 数字 ID',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.person),
-                        helperText: '向 @userinfobot 发消息获取 Chat ID',
+                        helperText: '向 @RawDataBot 发消息获取 Chat ID',
                         helperMaxLines: 2,
                       ),
                       keyboardType: TextInputType.number,

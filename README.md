@@ -34,7 +34,7 @@
 应用内 **设置 → Bot 集成** 配置：
 
 1. 通过 [@BotFather](https://t.me/BotFather) 创建 Bot，获取 Token
-2. 向 [@userinfobot](https://t.me/userinfobot) 发消息获取你的 Chat ID
+2. 向 [@RawDataBot](https://t.me/RawDataBot) 发消息获取你的 Chat ID
 3. 在设置中填入 Token 和 Chat ID，启用所需功能
 
 功能：
