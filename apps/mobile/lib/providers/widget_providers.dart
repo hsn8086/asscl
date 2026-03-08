@@ -6,6 +6,7 @@ import '../services/widget_service.dart';
 import 'course_providers.dart';
 import 'period_config_providers.dart';
 import 'semester_providers.dart';
+import 'shortened_names_provider.dart';
 
 final widgetServiceProvider = Provider<WidgetService>((ref) {
   final courseRepo = ref.watch(courseRepositoryProvider);
@@ -36,10 +37,13 @@ Future<void> refreshWidgets(dynamic ref) async {
     debugPrint('[Widget] refreshWidgets: activeId=$activeId, '
         'semester=${semester?.name}, week=$week, '
         'semesters.length=${semesters.length}');
+    final shortenedNames =
+        await ref.read(shortenedCourseNamesProvider.future) as Map<String, String>;
     await ref.read(widgetServiceProvider).updateWidgets(
           semesterName: semester?.name ?? '',
           semesterId: activeId,
           currentWeek: week,
+          shortenedNames: shortenedNames,
         );
   } catch (e, st) {
     debugPrint('[Widget] refreshWidgets FAILED: $e\n$st');

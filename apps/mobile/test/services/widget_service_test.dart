@@ -211,7 +211,7 @@ void main() {
       );
       final course =
           _course(name: '高数', startPeriod: 1, endPeriod: 2, location: 'A101');
-      final map = service.courseToMap(course, config);
+      final map = service.courseToMap(course, config, {});
       expect(map['name'], '高数');
       expect(map['location'], 'A101');
       expect(map['timeRange'], '08:00-09:40');
@@ -219,13 +219,20 @@ void main() {
 
     test('falls back to period text when no config', () {
       final course = _course(startPeriod: 3, endPeriod: 4);
-      final map = service.courseToMap(course, const PeriodConfig());
+      final map = service.courseToMap(course, const PeriodConfig(), {});
       expect(map['timeRange'], '第3-4节');
+    });
+
+    test('uses shortened name when available', () {
+      final course = _course(name: '高等数学');
+      final map = service.courseToMap(
+          course, const PeriodConfig(), {'高等数学': '高数'});
+      expect(map['name'], '高数');
     });
 
     test('includes color', () {
       final course = _course(color: '#FF5722');
-      final map = service.courseToMap(course, const PeriodConfig());
+      final map = service.courseToMap(course, const PeriodConfig(), {});
       expect(map['color'], '#FF5722');
     });
   });
@@ -239,7 +246,7 @@ void main() {
         _course(id: '4', name: 'Fri1', weekday: 5, startPeriod: 1),
       ];
       final result =
-          service.buildWeeklyCourses(courses, 1, const PeriodConfig());
+          service.buildWeeklyCourses(courses, 1, const PeriodConfig(), {});
       expect((result['1'] as List).length, 2);
       expect((result['2'] as List).length, 0);
       expect((result['3'] as List).length, 1);
@@ -253,11 +260,11 @@ void main() {
         _course(id: '2', weekday: 1, weekMode: WeekMode.even),
       ];
       final oddWeek =
-          service.buildWeeklyCourses(courses, 1, const PeriodConfig());
+          service.buildWeeklyCourses(courses, 1, const PeriodConfig(), {});
       expect((oddWeek['1'] as List).length, 1);
 
       final evenWeek =
-          service.buildWeeklyCourses(courses, 2, const PeriodConfig());
+          service.buildWeeklyCourses(courses, 2, const PeriodConfig(), {});
       expect((evenWeek['1'] as List).length, 1);
     });
   });

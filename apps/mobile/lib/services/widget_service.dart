@@ -15,6 +15,7 @@ class WidgetService {
     String semesterName = '',
     String? semesterId,
     int currentWeek = 1,
+    Map<String, String> shortenedNames = const {},
   }) async {
     var allCourses = await _courseRepo.watchAll().first;
     debugPrint('[Widget] total courses in DB: ${allCourses.length}');
@@ -39,13 +40,13 @@ class WidgetService {
     await HomeWidget.saveWidgetData<String>(
       'next_course_json',
       nextCourse != null
-          ? jsonEncode(courseToMap(nextCourse, periodConfig))
+          ? jsonEncode(courseToMap(nextCourse, periodConfig, shortenedNames))
           : '',
     );
 
     // Data for large widget (weekly schedule)
     final weeklyData =
-        buildWeeklyCourses(allCourses, currentWeek, periodConfig);
+        buildWeeklyCourses(allCourses, currentWeek, periodConfig, shortenedNames);
     final weeklyJson = jsonEncode(weeklyData);
     debugPrint('[Widget] weeklyJson length=${weeklyJson.length}, '
         'semesterName=$semesterName, currentWeek=$currentWeek');
@@ -79,12 +80,13 @@ class WidgetService {
 
   /// Build weekly courses data: map of weekday (1-7) to list of course maps.
   Map<String, dynamic> buildWeeklyCourses(
-      List<Course> all, int currentWeek, PeriodConfig config) {
+      List<Course> all, int currentWeek, PeriodConfig config,
+      Map<String, String> shortenedNames) {
     final result = <String, dynamic>{};
     for (int day = 1; day <= 7; day++) {
       final dayCourses = filterCoursesForDay(all, day, currentWeek);
       result[day.toString()] =
-          dayCourses.map((c) => courseToMap(c, config)).toList();
+          dayCourses.map((c) => courseToMap(c, config, shortenedNames)).toList();
     }
     return result;
   }
@@ -120,10 +122,12 @@ class WidgetService {
   }
 
   /// Serialize a course to a map suitable for widget display.
-  Map<String, dynamic> courseToMap(Course c, PeriodConfig config) {
+  Map<String, dynamic> courseToMap(Course c, PeriodConfig config,
+      Map<String, String> shortenedNames) {
     final timeRange = config.timeRangeString(c.startPeriod, c.endPeriod);
+    final shortName = shortenedNames[c.name.trim().toLowerCase()];
     return {
-      'name': c.name,
+      'name': shortName ?? c.name,
       'location': c.location ?? '',
       'teacher': c.teacher ?? '',
       'startPeriod': c.startPeriod,
