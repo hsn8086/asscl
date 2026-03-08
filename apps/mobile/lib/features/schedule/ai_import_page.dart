@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -705,6 +706,8 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
           await _executeDeleteSemester(ptc: ptc, tc: tc, agent: agent, repo: repo);
         case 'get_current_context':
           await _executeGetCurrentContext(ptc: ptc, tc: tc, agent: agent);
+        case 'get_time':
+          _executeGetTime(ptc: ptc, tc: tc, agent: agent);
       }
 
       msg.pendingToolCalls.add(ptc);
@@ -1068,6 +1071,18 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       agent.addToolResult(tc.id, '获取上下文失败: $e');
       ptc.status = _ToolCallStatus.confirmed;
     }
+  }
+
+  /// Auto-execute get_time (read-only, no permissions needed).
+  void _executeGetTime({
+    required _PendingToolCall ptc,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+  }) {
+    final now = DateTime.now();
+    final timeFmt = DateFormat('yyyy-MM-dd HH:mm:ss (EEEE)', 'zh_CN');
+    agent.addToolResult(tc.id, '当前时间：${timeFmt.format(now)}');
+    ptc.status = _ToolCallStatus.confirmed;
   }
 
   Future<void> _executeCreateSemester({
@@ -1947,6 +1962,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       'create_semester' => '创建学期',
       'update_semester' => '修改学期',
       'delete_semester' => '删除学期',
+      'get_time' => '获取时间',
       _ => tc.name,
     };
 

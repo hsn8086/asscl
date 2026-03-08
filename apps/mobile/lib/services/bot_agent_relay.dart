@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:data/data.dart';
 import 'package:domain/domain.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../providers/ai_providers.dart';
 import '../providers/bot_providers.dart';
@@ -28,6 +29,7 @@ class BotAgentRelay {
     'query_courses',
     'query_semesters',
     'get_current_context',
+    'get_time',
   };
 
   void start() {
@@ -158,6 +160,10 @@ class BotAgentRelay {
             weatherEnabled: _ref.read(weatherEnabledProvider).valueOrNull ?? false,
             weatherService: _ref.read(weatherServiceProvider),
           );
+        case 'get_time':
+          final now = DateTime.now();
+          final timeFmt = DateFormat('yyyy-MM-dd HH:mm:ss (EEEE)', 'zh_CN');
+          return '当前时间：${timeFmt.format(now)}';
         default:
           return '不支持的工具: ${tc.name}';
       }

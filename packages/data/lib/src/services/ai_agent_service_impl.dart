@@ -38,7 +38,8 @@ class AiAgentServiceImpl implements AiAgentService {
 当用户要创建学期时，使用 create_semester 工具。
 当用户要修改学期时，先用 query_semesters 查到学期ID，再用 update_semester 修改。
 当用户要删除学期时，先用 query_semesters 查到学期ID，再用 delete_semester 删除。
-当用户询问天气、时间、日期或位置相关问题时，使用 get_current_context 工具。
+当用户询问天气或位置相关问题时，使用 get_current_context 工具。
+当用户询问现在几点、今天星期几、当前日期等时间相关问题时，使用 get_time 工具。
 不要直接输出 JSON，而是调用工具。
 
 如果用户只是聊天或提问且不涉及上述操作，正常回复即可。
@@ -377,6 +378,17 @@ class AiAgentServiceImpl implements AiAgentService {
       'function': {
         'name': 'get_current_context',
         'description': '获取当前时间、用户位置和天气信息。当用户询问天气、时间、日期或位置相关问题时调用。',
+        'parameters': {
+          'type': 'object',
+          'properties': {},
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'get_time',
+        'description': '获取当前日期和时间。当用户询问现在几点、今天星期几、当前日期等时间相关问题时调用。',
         'parameters': {
           'type': 'object',
           'properties': {},
