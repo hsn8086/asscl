@@ -13,9 +13,25 @@ final semestersProvider = StreamProvider<List<Semester>>((ref) {
   return ref.watch(semesterRepositoryProvider).watchAll();
 });
 
-final activeSemesterIdProvider = StreamProvider<String?>((ref) {
+final activeSemesterIdProvider = StreamProvider<String?>((ref) async* {
   final db = ref.watch(appDatabaseProvider);
-  return SettingsDao(db).watchValue('activeSemesterId');
+  final dao = SettingsDao(db);
+
+  await for (final id in dao.watchValue('activeSemesterId')) {
+    if (id != null) {
+      yield id;
+    } else {
+      // No active semester set — auto-select the first available one.
+      final semesters = await ref.read(semesterRepositoryProvider).watchAll().first;
+      if (semesters.isNotEmpty) {
+        final firstId = semesters.first.id;
+        await dao.setValue('activeSemesterId', firstId);
+        yield firstId;
+      } else {
+        yield null;
+      }
+    }
+  }
 });
 
 final activeSemesterProvider = Provider<Semester?>((ref) {

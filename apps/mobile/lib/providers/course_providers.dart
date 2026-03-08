@@ -11,12 +11,14 @@ final courseRepositoryProvider = Provider<CourseRepository>((ref) {
 });
 
 /// Courses filtered by the active semester.
-/// Waits for activeSemesterId to resolve before emitting,
-/// to avoid briefly flashing all courses.
+/// Returns empty list when no active semester is set.
 final watchCoursesProvider = StreamProvider<List<Course>>((ref) async* {
   final activeId = await ref.watch(activeSemesterIdProvider.future);
+  if (activeId == null) {
+    yield [];
+    return;
+  }
   yield* ref.watch(courseRepositoryProvider).watchAll().map((courses) {
-    if (activeId == null) return courses;
     return courses.where((c) => c.semesterId == activeId).toList();
   });
 });
