@@ -73,10 +73,7 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
         }
 
         return SingleChildScrollView(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: _buildGrid(context, filtered, config, isCurrentWeek),
-          ),
+          child: _buildGrid(context, filtered, config, isCurrentWeek),
         );
       },
     );
@@ -102,7 +99,6 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
     final labelWidth = hasTime ? 56.0 : 40.0;
     final cellWidth =
         (MediaQuery.of(context).size.width - labelWidth) / 7;
-    final clampedWidth = cellWidth.clamp(48.0, 80.0);
     const cellHeight = 60.0;
 
     // Only show time indicator on the current week
@@ -130,7 +126,7 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
                 SizedBox(width: labelWidth, child: Container()),
                 for (int i = 0; i < _weekdays.length; i++)
                   SizedBox(
-                    width: clampedWidth,
+                    width: cellWidth,
                     child: Center(
                       child: Text(
                         _weekdays[i],
@@ -161,12 +157,12 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
                   ),
                   for (int day = 1; day <= 7; day++)
                     SizedBox(
-                      width: clampedWidth,
+                      width: cellWidth,
                       height: cellHeight,
                       child: _cellContent(
                         context,
                         courseMap, occupiedBy, day, period,
-                        clampedWidth, cellHeight,
+                        cellWidth, cellHeight,
                       ),
                     ),
                 ],
@@ -177,8 +173,8 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
           Positioned(
             top: timeIndicatorY + 21,
             // Position only on today's column
-            left: labelWidth + (todayWeekday - 1) * clampedWidth,
-            width: clampedWidth,
+            left: labelWidth + (todayWeekday - 1) * cellWidth,
+            width: cellWidth,
             child: Row(
               children: [
                 Container(
