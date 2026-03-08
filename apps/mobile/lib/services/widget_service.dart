@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:domain/domain.dart';
+import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 
 class WidgetService {
@@ -16,9 +17,13 @@ class WidgetService {
     int currentWeek = 1,
   }) async {
     var allCourses = await _courseRepo.watchAll().first;
+    debugPrint('[Widget] total courses in DB: ${allCourses.length}');
     if (semesterId != null) {
       allCourses =
           allCourses.where((c) => c.semesterId == semesterId).toList();
+      debugPrint('[Widget] after semesterId($semesterId) filter: ${allCourses.length}');
+    } else {
+      debugPrint('[Widget] semesterId is null, no filter applied');
     }
     final periodConfig = await _periodConfigRepo.getConfig();
 
@@ -27,6 +32,7 @@ class WidgetService {
 
     final todayCourses =
         filterCoursesForDay(allCourses, todayWeekday, currentWeek);
+    debugPrint('[Widget] today(weekday=$todayWeekday, week=$currentWeek) courses: ${todayCourses.length}');
     final nextCourse = findNextCourse(todayCourses, periodConfig, now);
 
     // Data for small widget (next class)
@@ -40,9 +46,12 @@ class WidgetService {
     // Data for large widget (weekly schedule)
     final weeklyData =
         buildWeeklyCourses(allCourses, currentWeek, periodConfig);
+    final weeklyJson = jsonEncode(weeklyData);
+    debugPrint('[Widget] weeklyJson length=${weeklyJson.length}, '
+        'semesterName=$semesterName, currentWeek=$currentWeek');
     await HomeWidget.saveWidgetData<String>(
       'weekly_courses_json',
-      jsonEncode(weeklyData),
+      weeklyJson,
     );
     await HomeWidget.saveWidgetData<int>(
       'current_week',
@@ -65,6 +74,7 @@ class WidgetService {
       androidName: 'TodayScheduleWidgetProvider',
       qualifiedAndroidName: 'com.hsn8086.asscl.TodayScheduleWidgetProvider',
     );
+    debugPrint('[Widget] updateWidget calls completed');
   }
 
   /// Build weekly courses data: map of weekday (1-7) to list of course maps.
