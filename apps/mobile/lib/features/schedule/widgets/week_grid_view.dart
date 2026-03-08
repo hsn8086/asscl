@@ -8,13 +8,14 @@ import 'package:presentation/presentation.dart';
 
 import '../../../providers/course_providers.dart';
 import '../../../providers/period_config_providers.dart';
-import '../../../providers/view_providers.dart';
+import '../../../providers/semester_providers.dart';
 import 'course_card.dart';
 
 const _weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
 class WeekGridView extends ConsumerStatefulWidget {
-  const WeekGridView({super.key});
+  final int weekNumber;
+  const WeekGridView({super.key, required this.weekNumber});
 
   @override
   ConsumerState<WeekGridView> createState() => _WeekGridViewState();
@@ -42,13 +43,13 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
   Widget build(BuildContext context) {
     final coursesAsync = ref.watch(watchCoursesProvider);
     final configAsync = ref.watch(periodConfigProvider);
-    final weekNumber = ref.watch(selectedWeekProvider);
+    final weekNumber = widget.weekNumber;
 
     final config = configAsync.valueOrNull ?? const PeriodConfig();
 
-    // Determine if this is the "real" current week (week 1 at app start)
     // Time indicator and today highlight only show on the real current week.
-    final isCurrentWeek = weekNumber == 1;
+    final realWeek = ref.watch(currentWeekProvider);
+    final isCurrentWeek = weekNumber == realWeek;
 
     return coursesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),

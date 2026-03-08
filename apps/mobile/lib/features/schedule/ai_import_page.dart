@@ -835,6 +835,48 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     }
   }
 
+  // ===== Shared tool-call helpers =====
+
+  /// Submit a tool result to the AI agent for a specific pending tool call.
+  void _submitToolResult(_PendingToolCall ptc, _UiMessage msg, String result) {
+    final agent = ref.read(aiAgentServiceProvider);
+    if (agent != null && msg.toolCalls != null) {
+      for (final tc in msg.toolCalls!) {
+        if (tc.id == ptc.id) {
+          agent.addToolResult(tc.id, result);
+        }
+      }
+    }
+  }
+
+  /// Mark a tool call as confirmed, show a snackbar, and check resolution.
+  void _confirmToolCall(
+    _PendingToolCall ptc,
+    _UiMessage msg,
+    String toolResult,
+    String snackMessage,
+  ) {
+    _submitToolResult(ptc, msg, toolResult);
+    setState(() => ptc.status = _ToolCallStatus.confirmed);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(snackMessage)),
+      );
+    }
+    _checkAllToolCallsResolved(msg);
+  }
+
+  /// Mark a tool call as rejected, notify the agent, and check resolution.
+  void _rejectToolCall(
+    _PendingToolCall ptc,
+    _UiMessage msg,
+    String toolResult,
+  ) {
+    _submitToolResult(ptc, msg, toolResult);
+    setState(() => ptc.status = _ToolCallStatus.rejected);
+    _checkAllToolCallsResolved(msg);
+  }
+
   Future<void> _confirmImport(_PendingToolCall ptc, _UiMessage msg) async {
     final courses = ptc.parsedCourses;
     if (courses == null || courses.isEmpty) return;
@@ -863,37 +905,14 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     ref.invalidate(watchCoursesProvider);
     refreshWidgets(ref);
 
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '已成功导入 ${courses.length} 门课程。');
-        }
-      }
-    }
-
-    setState(() => ptc.status = _ToolCallStatus.confirmed);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已导入 ${courses.length} 门课程')),
-      );
-    }
-
-    _checkAllToolCallsResolved(msg);
+    _confirmToolCall(ptc, msg,
+      '已成功导入 ${courses.length} 门课程。',
+      '已导入 ${courses.length} 门课程',
+    );
   }
 
   void _rejectImport(_PendingToolCall ptc, _UiMessage msg) {
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '用户拒绝了导入操作。');
-        }
-      }
-    }
-    setState(() => ptc.status = _ToolCallStatus.rejected);
-    _checkAllToolCallsResolved(msg);
+    _rejectToolCall(ptc, msg, '用户拒绝了导入操作。');
   }
 
   Future<void> _confirmUpdate(_PendingToolCall ptc, _UiMessage msg) async {
@@ -928,37 +947,14 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     ref.invalidate(watchCoursesProvider);
     refreshWidgets(ref);
 
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '已成功修改课程「${updated.name}」。');
-        }
-      }
-    }
-
-    setState(() => ptc.status = _ToolCallStatus.confirmed);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已修改课程「${updated.name}」')),
-      );
-    }
-
-    _checkAllToolCallsResolved(msg);
+    _confirmToolCall(ptc, msg,
+      '已成功修改课程「${updated.name}」。',
+      '已修改课程「${updated.name}」',
+    );
   }
 
   void _rejectUpdate(_PendingToolCall ptc, _UiMessage msg) {
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '用户拒绝了修改操作。');
-        }
-      }
-    }
-    setState(() => ptc.status = _ToolCallStatus.rejected);
-    _checkAllToolCallsResolved(msg);
+    _rejectToolCall(ptc, msg, '用户拒绝了修改操作。');
   }
 
   Future<void> _confirmDelete(_PendingToolCall ptc, _UiMessage msg) async {
@@ -972,39 +968,15 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     ref.invalidate(watchCoursesProvider);
     refreshWidgets(ref);
 
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          final names = courses.map((c) => '「${c.name}」').join('、');
-          agent.addToolResult(
-              tc.id, '已成功删除 ${courses.length} 门课程：$names。');
-        }
-      }
-    }
-
-    setState(() => ptc.status = _ToolCallStatus.confirmed);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已删除 ${courses.length} 门课程')),
-      );
-    }
-
-    _checkAllToolCallsResolved(msg);
+    final names = courses.map((c) => '「${c.name}」').join('、');
+    _confirmToolCall(ptc, msg,
+      '已成功删除 ${courses.length} 门课程：$names。',
+      '已删除 ${courses.length} 门课程',
+    );
   }
 
   void _rejectDelete(_PendingToolCall ptc, _UiMessage msg) {
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '用户拒绝了删除操作。');
-        }
-      }
-    }
-    setState(() => ptc.status = _ToolCallStatus.rejected);
-    _checkAllToolCallsResolved(msg);
+    _rejectToolCall(ptc, msg, '用户拒绝了删除操作。');
   }
 
   // ===== set_current_week — auto-execute =====
@@ -1272,37 +1244,14 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     await ref.read(taskRepositoryProvider).save(task);
     ref.invalidate(watchTasksProvider);
 
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '已成功添加任务「${task.title}」。');
-        }
-      }
-    }
-
-    setState(() => ptc.status = _ToolCallStatus.confirmed);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加任务「${task.title}」')),
-      );
-    }
-
-    _checkAllToolCallsResolved(msg);
+    _confirmToolCall(ptc, msg,
+      '已成功添加任务「${task.title}」。',
+      '已添加任务「${task.title}」',
+    );
   }
 
   void _rejectAddTask(_PendingToolCall ptc, _UiMessage msg) {
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '用户拒绝了添加任务。');
-        }
-      }
-    }
-    setState(() => ptc.status = _ToolCallStatus.rejected);
-    _checkAllToolCallsResolved(msg);
+    _rejectToolCall(ptc, msg, '用户拒绝了添加任务。');
   }
 
   // ===== add_reminder — pending confirmation =====
@@ -1337,37 +1286,15 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     forwardReminderToTg(ref, reminder);
     ref.invalidate(watchRemindersProvider);
 
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '已成功添加提醒「${reminder.title}」，将在 ${scheduledAt.month}/${scheduledAt.day} ${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')} 提醒。');
-        }
-      }
-    }
-
-    setState(() => ptc.status = _ToolCallStatus.confirmed);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加提醒「${reminder.title}」')),
-      );
-    }
-
-    _checkAllToolCallsResolved(msg);
+    final timeStr = '${scheduledAt.month}/${scheduledAt.day} ${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
+    _confirmToolCall(ptc, msg,
+      '已成功添加提醒「${reminder.title}」，将在 $timeStr 提醒。',
+      '已添加提醒「${reminder.title}」',
+    );
   }
 
   void _rejectAddReminder(_PendingToolCall ptc, _UiMessage msg) {
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '用户拒绝了添加提醒。');
-        }
-      }
-    }
-    setState(() => ptc.status = _ToolCallStatus.rejected);
-    _checkAllToolCallsResolved(msg);
+    _rejectToolCall(ptc, msg, '用户拒绝了添加提醒。');
   }
 
   // ===== set_period_times — pending confirmation =====
@@ -1408,38 +1335,14 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     await ref.read(periodConfigRepositoryProvider).saveConfig(config);
     ref.invalidate(periodConfigProvider);
 
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(
-              tc.id, '已成功设置 ${periods.length} 个节次的时间。');
-        }
-      }
-    }
-
-    setState(() => ptc.status = _ToolCallStatus.confirmed);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已设置 ${periods.length} 个节次时间')),
-      );
-    }
-
-    _checkAllToolCallsResolved(msg);
+    _confirmToolCall(ptc, msg,
+      '已成功设置 ${periods.length} 个节次的时间。',
+      '已设置 ${periods.length} 个节次时间',
+    );
   }
 
   void _rejectSetPeriodTimes(_PendingToolCall ptc, _UiMessage msg) {
-    final agent = ref.read(aiAgentServiceProvider);
-    if (agent != null && msg.toolCalls != null) {
-      for (final tc in msg.toolCalls!) {
-        if (tc.id == ptc.id) {
-          agent.addToolResult(tc.id, '用户拒绝了设置节次时间。');
-        }
-      }
-    }
-    setState(() => ptc.status = _ToolCallStatus.rejected);
-    _checkAllToolCallsResolved(msg);
+    _rejectToolCall(ptc, msg, '用户拒绝了设置节次时间。');
   }
 
   /// Continue conversation after a tool result.

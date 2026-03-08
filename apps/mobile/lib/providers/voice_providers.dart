@@ -29,11 +29,11 @@ final voiceEnabledProvider = FutureProvider<bool>((ref) async {
 /// Voice configuration (endpoint, key, model).
 /// Returns null if voice is disabled or not configured.
 final voiceConfigProvider = FutureProvider<VoiceConfig?>((ref) async {
+  final enabled = await ref.watch(voiceEnabledProvider.future);
+  if (!enabled) return null;
+
   final db = ref.watch(appDatabaseProvider);
   final dao = SettingsDao(db);
-
-  final enabled = await dao.getValue('voiceEnabled');
-  if (enabled != 'true') return null;
 
   final sameAsAgent = await dao.getValue('voiceSameAsAgent');
   final modelName = await dao.getValue('voiceModelName');

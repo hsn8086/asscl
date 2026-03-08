@@ -4,16 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:presentation/presentation.dart';
 
 import '../../../providers/course_providers.dart';
-import '../../../providers/view_providers.dart';
 import 'course_card.dart';
 
 class TimeStreamView extends ConsumerWidget {
-  const TimeStreamView({super.key});
+  final int weekNumber;
+  const TimeStreamView({super.key, required this.weekNumber});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final coursesAsync = ref.watch(watchCoursesProvider);
-    final weekNumber = ref.watch(selectedWeekProvider);
 
     return coursesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),

@@ -22,6 +22,18 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     super.initState();
     final week = ref.read(selectedWeekProvider);
     _pageController = PageController(initialPage: week - 1);
+
+    // Sync PageView when week changes from buttons/chips.
+    ref.listenManual(selectedWeekProvider, (prev, next) {
+      if (_pageController.hasClients &&
+          _pageController.page?.round() != next - 1) {
+        _pageController.animateToPage(
+          next - 1,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
 
   @override
@@ -68,20 +80,6 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
     final realWeek = ref.watch(currentWeekProvider);
     final semester = ref.watch(activeSemesterProvider);
     final maxWeek = semester?.totalWeeks ?? 30;
-
-    // Sync PageView when week changes from buttons/chips.
-    if (_pageController.hasClients &&
-        _pageController.page?.round() != weekNumber - 1) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_pageController.hasClients) {
-          _pageController.animateToPage(
-            weekNumber - 1,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-          );
-        }
-      });
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -179,9 +177,10 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
           ref.read(selectedWeekProvider.notifier).state = index + 1;
         },
         itemBuilder: (context, index) {
+          final week = index + 1;
           return viewType == ViewType.weekGrid
-              ? const WeekGridView()
-              : const TimeStreamView();
+              ? WeekGridView(weekNumber: week)
+              : TimeStreamView(weekNumber: week);
         },
       ),
       floatingActionButton: FloatingActionButton(
