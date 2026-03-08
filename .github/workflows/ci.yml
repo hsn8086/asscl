@@ -76,7 +76,7 @@ jobs:
       - name: Install dependencies
         run: cd apps/mobile && flutter pub get
       - name: Build release APK
-        run: cd apps/mobile && flutter build apk --release
+        run: cd apps/mobile && flutter build apk --release --build-number=${{ github.run_number }}
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -97,8 +97,9 @@ jobs:
         id: version
         run: |
           VERSION=$(grep '^version:' apps/mobile/pubspec.yaml | sed 's/version: //')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$(echo $VERSION | cut -d'+' -f1)" >> "$GITHUB_OUTPUT"
+          BASE_VERSION=$(echo $VERSION | cut -d'+' -f1)
+          BUILD=${{ github.run_number }}
+          echo "tag=v${BASE_VERSION}+${BUILD}" >> "$GITHUB_OUTPUT"
       - name: Download APK artifact
         uses: actions/download-artifact@v4
         with:
