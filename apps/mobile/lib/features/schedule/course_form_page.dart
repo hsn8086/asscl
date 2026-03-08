@@ -105,6 +105,15 @@ class _CourseFormPageState extends ConsumerState<CourseFormPage> {
       updatedAt: now,
     );
 
+    if (!_isEditing && course.semesterId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先创建学期后再添加课程')),
+        );
+      }
+      return;
+    }
+
     await ref.read(courseRepositoryProvider).save(course);
     ref.invalidate(watchCoursesProvider);
     refreshWidgets(ref);

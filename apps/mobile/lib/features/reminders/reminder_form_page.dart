@@ -90,8 +90,9 @@ class _ReminderFormPageState extends ConsumerState<ReminderFormPage> {
 
     await ref.read(reminderRepositoryProvider).save(reminder);
 
-    // Schedule local notification
+    // Sync local notification: always cancel old first, then reschedule.
     final notificationService = ref.read(notificationServiceProvider);
+    await notificationService.cancel(reminder.id);
     if (reminder.isActive && reminder.scheduledAt.isAfter(DateTime.now())) {
       await notificationService.schedule(reminder);
     }

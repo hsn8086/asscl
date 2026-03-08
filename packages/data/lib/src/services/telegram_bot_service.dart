@@ -19,14 +19,19 @@ class TelegramBotService implements BotPlatformService {
   final String token;
   final String _baseUrl;
   final http.Client _client;
+  final http.Client Function() _clientFactory;
 
   int _updateOffset = 0;
   bool _polling = false;
   http.Client? _pollClient;
 
-  TelegramBotService({required this.token, http.Client? client})
-      : _baseUrl = 'https://api.telegram.org/bot$token',
-        _client = client ?? http.Client();
+  TelegramBotService({
+    required this.token,
+    http.Client? client,
+    http.Client Function()? clientFactory,
+  })  : _baseUrl = 'https://api.telegram.org/bot$token',
+        _client = client ?? http.Client(),
+        _clientFactory = clientFactory ?? (() => http.Client());
 
   // ------------------------------------------------------------------
   // BotPlatformService
@@ -104,7 +109,7 @@ class TelegramBotService implements BotPlatformService {
   Stream<BotIncomingMessage> pollMessages() async* {
     _polling = true;
     // Dedicated client for long-polling; stopPolling() closes it.
-    _pollClient = http.Client();
+    _pollClient = _clientFactory();
 
     while (_polling) {
       try {

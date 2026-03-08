@@ -88,28 +88,38 @@ class AppDatabase extends _$AppDatabase {
             );
           }
           if (from < 5) {
-            // Fix: v4 migration stored dates as ISO strings instead of
-            // Unix timestamps. Re-create the semesters with correct format.
-            await customStatement('DELETE FROM semesters_table');
+            // Fix: v4 migration may have stored dates as ISO strings instead
+            // of Unix timestamps. Convert in-place without deleting data.
+            final rows = await customSelect(
+              'SELECT id, start_date, created_at FROM semesters_table',
+            ).get();
 
-            final uuid = const Uuid().v4();
-            final now = DateTime.now();
-            final monday = DateTime(now.year, now.month, now.day)
-                .subtract(Duration(days: now.weekday - 1));
-            final mondayEpoch = monday.millisecondsSinceEpoch ~/ 1000;
-            final nowEpoch = now.millisecondsSinceEpoch ~/ 1000;
+            for (final row in rows) {
+              final id = row.read<String>('id');
+              final rawStart = row.read<int>('start_date');
+              final rawCreated = row.read<int>('created_at');
 
-            await customStatement(
-              "INSERT INTO semesters_table (id, name, start_date, total_weeks, created_at) "
-              "VALUES ('$uuid', '默认学期', $mondayEpoch, 20, $nowEpoch)",
-            );
-            await customStatement(
-              "UPDATE courses_table SET semester_id = '$uuid'",
-            );
-            await customStatement(
-              "INSERT OR REPLACE INTO settings_table (key, value) "
-              "VALUES ('activeSemesterId', '$uuid')",
-            );
+              // If the value looks like a large millisecond timestamp or an
+              // ISO-8601 parse artifact, convert it. Drift DateTimeColumn
+              // stores as Unix seconds. Values > 1e12 are likely millis.
+              int fixTimestamp(int raw) {
+                if (raw > 1e12) {
+                  // Likely milliseconds — convert to seconds.
+                  return raw ~/ 1000;
+                }
+                return raw; // Already in seconds.
+              }
+
+              final fixedStart = fixTimestamp(rawStart);
+              final fixedCreated = fixTimestamp(rawCreated);
+
+              if (fixedStart != rawStart || fixedCreated != rawCreated) {
+                await customStatement(
+                  'UPDATE semesters_table SET start_date = $fixedStart, '
+                  'created_at = $fixedCreated WHERE id = \'$id\'',
+                );
+              }
+            }
           }
         },
       );

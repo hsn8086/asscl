@@ -8,6 +8,8 @@ import 'package:uuid/uuid.dart';
 import '../../providers/course_providers.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/semester_providers.dart';
+import '../../providers/task_providers.dart';
+import '../../providers/widget_providers.dart';
 
 const _uuid = Uuid();
 
@@ -95,6 +97,7 @@ class SemesterManagePage extends ConsumerWidget {
     final db = ref.read(appDatabaseProvider);
     await SettingsDao(db).setValue('activeSemesterId', semesterId);
     ref.invalidate(activeSemesterIdProvider);
+    refreshWidgets(ref);
   }
 
   Future<void> _deleteSemester(
@@ -112,14 +115,28 @@ class SemesterManagePage extends ConsumerWidget {
 
     final repo = ref.read(semesterRepositoryProvider);
     final courseRepo = ref.read(courseRepositoryProvider);
+    final taskRepo = ref.read(taskRepositoryProvider);
 
-    // Delete all courses in this semester
+    // Collect course IDs being deleted to clean up task references.
     final allCourses = await courseRepo.watchAll().first;
+    final deletedCourseIds = <String>{};
     for (final c in allCourses) {
       if (c.semesterId == semester.id) {
+        deletedCourseIds.add(c.id);
         await courseRepo.delete(c.id);
       }
     }
+
+    // Unlink tasks that referenced deleted courses (don't delete the tasks).
+    if (deletedCourseIds.isNotEmpty) {
+      final tasks = await taskRepo.watchAll().first;
+      for (final t in tasks) {
+        if (t.courseId != null && deletedCourseIds.contains(t.courseId)) {
+          await taskRepo.save(t.copyWith(courseId: () => null));
+        }
+      }
+    }
+
     await repo.delete(semester.id);
 
     if (isActive) {
@@ -136,6 +153,7 @@ class SemesterManagePage extends ConsumerWidget {
 
     ref.invalidate(semestersProvider);
     ref.invalidate(activeSemesterIdProvider);
+    refreshWidgets(ref);
   }
 
   Future<void> _showSemesterForm(
@@ -159,6 +177,7 @@ class SemesterManagePage extends ConsumerWidget {
 
     ref.invalidate(semestersProvider);
     ref.invalidate(activeSemesterIdProvider);
+    refreshWidgets(ref);
   }
 
   String _formatDate(DateTime d) =>

@@ -7,6 +7,7 @@ import '../../providers/ai_providers.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../providers/proxy_providers.dart';
+import '../../providers/reminder_providers.dart';
 import '../../providers/sync_providers.dart';
 
 class OnboardingPage extends ConsumerStatefulWidget {
@@ -161,6 +162,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         return;
       }
       await sync.downloadRestore();
+      await rescheduleAllReminders(ref);
       _showSnackBar('数据恢复成功');
 
       // If the backup contained AI config, skip the AI page.

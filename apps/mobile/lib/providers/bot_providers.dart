@@ -56,7 +56,11 @@ final telegramBotServiceProvider = Provider<TelegramBotService?>((ref) {
   final config = ref.watch(tgConfigProvider).valueOrNull;
   if (config == null || !config.isValid) return null;
   final client = ref.watch(httpClientProvider);
-  return TelegramBotService(token: config.token, client: client);
+  return TelegramBotService(
+    token: config.token,
+    client: client,
+    clientFactory: () => ref.read(httpClientProvider),
+  );
 });
 
 /// Forward a reminder to Telegram if notification forwarding is enabled.

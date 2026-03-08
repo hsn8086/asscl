@@ -21,6 +21,7 @@ import '../../providers/ai_providers.dart';
 import '../../providers/bot_providers.dart';
 import '../../providers/course_providers.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/notification_providers.dart';
 import '../../providers/period_config_providers.dart';
 import '../../providers/reminder_providers.dart';
 import '../../providers/semester_providers.dart';
@@ -899,6 +900,14 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     final now = DateTime.now();
     final semesterId = ref.read(activeSemesterIdProvider).valueOrNull;
 
+    if (semesterId == null) {
+      _confirmToolCall(ptc, msg,
+        '导入失败：尚未创建学期，请先在设置中创建学期。',
+        '导入失败：无活跃学期',
+      );
+      return;
+    }
+
     for (final parsed in courses) {
       await repo.save(Course(
         id: _uuid.v4(),
@@ -1344,6 +1353,10 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     );
 
     await ref.read(reminderRepositoryProvider).save(reminder);
+    // Schedule local notification for the new reminder.
+    if (reminder.isActive && scheduledAt.isAfter(DateTime.now())) {
+      await ref.read(notificationServiceProvider).schedule(reminder);
+    }
     forwardReminderToTg(ref, reminder);
     ref.invalidate(watchRemindersProvider);
 
@@ -1423,6 +1436,12 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     );
 
     await ref.read(reminderRepositoryProvider).save(updated);
+    // Sync notification: cancel old, schedule new if active and future.
+    final ns = ref.read(notificationServiceProvider);
+    await ns.cancel(updated.id);
+    if (updated.isActive && updated.scheduledAt.isAfter(DateTime.now())) {
+      await ns.schedule(updated);
+    }
     ref.invalidate(watchRemindersProvider);
 
     _confirmToolCall(ptc, msg,
@@ -1460,6 +1479,8 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     final reminder = ptc.deleteReminder;
     if (reminder == null) return;
 
+    // Cancel notification before deleting the reminder.
+    await ref.read(notificationServiceProvider).cancel(reminder.id);
     await ref.read(reminderRepositoryProvider).delete(reminder.id);
     ref.invalidate(watchRemindersProvider);
 

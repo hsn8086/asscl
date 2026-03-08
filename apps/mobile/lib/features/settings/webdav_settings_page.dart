@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/database_provider.dart';
 import '../../providers/proxy_providers.dart';
+import '../../providers/reminder_providers.dart';
 import '../../providers/sync_providers.dart';
+import '../../providers/widget_providers.dart';
 
 class WebDavSettingsPage extends ConsumerStatefulWidget {
   const WebDavSettingsPage({super.key});
@@ -152,6 +154,8 @@ class _WebDavSettingsPageState extends ConsumerState<WebDavSettingsPage> {
         return;
       }
       await sync.downloadRestore();
+      await rescheduleAllReminders(ref);
+      refreshWidgets(ref);
       _showSnackBar('数据恢复成功');
     } catch (e) {
       _showSnackBar('恢复失败: $e');
