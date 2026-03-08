@@ -1872,8 +1872,6 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                           _pickImage(ImageSource.camera);
                         case 'file':
                           _pickDocument();
-                        case 'voice':
-                          _toggleRecording();
                       }
                     },
                     itemBuilder: (_) => [
@@ -1904,24 +1902,14 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                           contentPadding: EdgeInsets.zero,
                         ),
                       ),
-                      if (voiceEnabled)
-                        PopupMenuItem(
-                          value: 'voice',
-                          enabled: !_isTranscribing,
-                          child: ListTile(
-                            leading: Icon(
-                              _isRecording ? Icons.stop_circle : Icons.mic,
-                              color: _isRecording
-                                  ? theme.colorScheme.error
-                                  : null,
-                            ),
-                            title: Text(_isRecording ? '停止录音' : '语音输入'),
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
                     ],
                   ),
+                  if (voiceEnabled && !_isTranscribing && !_isRecording)
+                    IconButton(
+                      icon: const Icon(Icons.mic),
+                      tooltip: '语音输入',
+                      onPressed: _isSending ? null : _toggleRecording,
+                    ),
                   if (_isTranscribing)
                     const SizedBox(
                       width: 48,
