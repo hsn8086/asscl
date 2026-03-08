@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:presentation/presentation.dart';
 
 import 'providers/bot_providers.dart';
+import 'providers/semester_providers.dart';
+import 'providers/view_providers.dart';
 import 'providers/widget_providers.dart';
 import 'router/app_router.dart';
 
@@ -30,6 +32,18 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // Recalculate current week in case a week boundary was crossed
+      // while the app was in the background.
+      final oldWeek = ref.read(currentWeekProvider);
+      ref.invalidate(currentWeekProvider);
+      final newWeek = ref.read(currentWeekProvider);
+      if (oldWeek != newWeek) {
+        // Update selected week if it was tracking the current week.
+        final selected = ref.read(selectedWeekProvider);
+        if (selected == oldWeek) {
+          ref.read(selectedWeekProvider.notifier).state = newWeek;
+        }
+      }
       _updateWidgets();
     }
   }
