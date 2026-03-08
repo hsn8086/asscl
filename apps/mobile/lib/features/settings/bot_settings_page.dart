@@ -16,6 +16,7 @@ class BotSettingsPage extends ConsumerStatefulWidget {
 class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
   final _tokenController = TextEditingController();
   final _chatIdController = TextEditingController();
+  final _ownerIdController = TextEditingController();
   bool _enabled = false;
   bool _notifyEnabled = false;
   bool _agentEnabled = false;
@@ -28,6 +29,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
   void dispose() {
     _tokenController.dispose();
     _chatIdController.dispose();
+    _ownerIdController.dispose();
     super.dispose();
   }
 
@@ -38,6 +40,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
     final dao = SettingsDao(db);
     final token = await dao.getValue('tgBotToken');
     final chatId = await dao.getValue('tgChatId');
+    final ownerId = await dao.getValue('tgOwnerId');
     final enabled = await dao.getValue('tgEnabled');
     final notify = await dao.getValue('tgNotifyEnabled');
     final agent = await dao.getValue('tgAgentEnabled');
@@ -46,6 +49,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
       setState(() {
         _tokenController.text = token ?? '';
         _chatIdController.text = chatId ?? '';
+        _ownerIdController.text = ownerId ?? '';
         _enabled = enabled == 'true';
         _notifyEnabled = notify == 'true';
         _agentEnabled = agent == 'true';
@@ -59,6 +63,7 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
     final dao = SettingsDao(db);
     final token = _tokenController.text.trim();
     final chatId = _chatIdController.text.trim();
+    final ownerId = _ownerIdController.text.trim();
 
     if (token.isNotEmpty) {
       await dao.setValue('tgBotToken', token);
@@ -69,6 +74,11 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
       await dao.setValue('tgChatId', chatId);
     } else {
       await dao.deleteKey('tgChatId');
+    }
+    if (ownerId.isNotEmpty) {
+      await dao.setValue('tgOwnerId', ownerId);
+    } else {
+      await dao.deleteKey('tgOwnerId');
     }
     await dao.setValue('tgEnabled', _enabled.toString());
     await dao.setValue('tgNotifyEnabled', _notifyEnabled.toString());
@@ -213,6 +223,19 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.person),
                         helperText: '向 @RawDataBot 发消息获取 Chat ID',
+                        helperMaxLines: 2,
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _ownerIdController,
+                      decoration: const InputDecoration(
+                        labelText: 'Owner ID（可选）',
+                        hintText: '与 Chat ID 相同或留空',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.verified_user),
+                        helperText: '限制仅此用户可与 Bot 交互',
                         helperMaxLines: 2,
                       ),
                       keyboardType: TextInputType.number,

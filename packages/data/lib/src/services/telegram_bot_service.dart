@@ -147,8 +147,11 @@ class TelegramBotService implements BotPlatformService {
           if (text == null || text.isEmpty) continue;
 
           final chat = message['chat'] as Map<String, dynamic>;
+          final from = message['from'] as Map<String, dynamic>?;
           yield BotIncomingMessage(
             chatId: chat['id'].toString(),
+            senderId: from?['id']?.toString(),
+            chatType: chat['type']?.toString() ?? 'private',
             messageId: message['message_id'] as int,
             text: text,
           );

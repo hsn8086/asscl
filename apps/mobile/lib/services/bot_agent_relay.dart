@@ -58,13 +58,23 @@ class BotAgentRelay {
   }
 
   Future<void> _handleMessage(BotIncomingMessage msg) async {
-    final agent = _ref.read(aiAgentServiceProvider);
+    final agent = _ref.read(botAgentServiceProvider);
     final bot = _ref.read(telegramBotServiceProvider);
     final config = _ref.read(tgConfigProvider).valueOrNull;
     if (agent == null || bot == null || config == null) return;
 
     // Only respond to messages from the configured chat — ignore others.
     if (msg.chatId != config.chatId) return;
+
+    // Reject group chats — only private messages are allowed.
+    if (msg.chatType != 'private') return;
+
+    // Validate sender ID if configured — prevents unauthorized users.
+    if (config.ownerId != null &&
+        config.ownerId!.isNotEmpty &&
+        msg.senderId != config.ownerId) {
+      return;
+    }
 
     try {
       // Show typing indicator while AI is processing.

@@ -64,7 +64,10 @@ class _PeriodConfigPageState extends ConsumerState<PeriodConfigPage> {
       context: context,
       initialTime: existing != null
           ? TimeOfDay(hour: existing.endHour, minute: existing.endMinute)
-          : TimeOfDay(hour: startTime.hour, minute: startTime.minute + 45),
+          : TimeOfDay.fromDateTime(
+              DateTime(0, 1, 1, startTime.hour, startTime.minute)
+                  .add(const Duration(minutes: 45)),
+            ),
       helpText: '第$periodNumber节 下课时间',
     );
     if (endTime == null || !mounted) return;

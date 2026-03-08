@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:domain/domain.dart' as domain;
 
+import 'semesters_table.dart';
+
 class CoursesTable extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
@@ -12,7 +14,8 @@ class CoursesTable extends Table {
   TextColumn get weekMode => textEnum<domain.WeekMode>()();
   TextColumn get customWeeks => text().withDefault(const Constant('[]'))();
   TextColumn get color => text().nullable()();
-  TextColumn get semesterId => text().nullable()();
+  TextColumn get semesterId =>
+      text().nullable().references(SemestersTable, #id, onDelete: KeyAction.cascade)();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 

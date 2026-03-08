@@ -47,11 +47,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
+        beforeOpen: (details) async {
+          // Enable FK enforcement for all connections.
+          await customStatement('PRAGMA foreign_keys = ON');
+        },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.createTable(periodTimesTable);
@@ -120,6 +124,20 @@ class AppDatabase extends _$AppDatabase {
                 );
               }
             }
+          }
+          if (from < 6) {
+            // Clean up orphaned data (courses/chat_messages referencing
+            // deleted semesters/sessions). The new table definitions include
+            // FK constraints with CASCADE for new installs; for existing DBs
+            // we just purge stale rows.
+            await customStatement(
+              'DELETE FROM courses_table WHERE semester_id IS NOT NULL '
+              'AND semester_id NOT IN (SELECT id FROM semesters_table)',
+            );
+            await customStatement(
+              'DELETE FROM chat_messages_table WHERE session_id NOT IN '
+              '(SELECT id FROM chat_sessions_table)',
+            );
           }
         },
       );

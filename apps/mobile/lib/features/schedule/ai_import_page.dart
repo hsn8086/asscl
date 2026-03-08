@@ -61,6 +61,13 @@ class _PendingToolCall {
   Reminder? deleteReminder;
   // set_period_times
   Map<String, dynamic>? setPeriodTimesFields;
+  // create_semester
+  Map<String, dynamic>? createSemesterFields;
+  // update_semester
+  Semester? updateSemesterOriginal;
+  Map<String, dynamic>? updateSemesterFields;
+  // delete_semester
+  Semester? deleteSemester;
 
   _PendingToolCall({
     required this.id,
@@ -694,7 +701,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
         case 'delete_courses':
           await _prepareDeleteCourses(ptc, tc, repo);
         case 'set_current_week':
-          await _executeSetCurrentWeek(ptc: ptc, tc: tc, agent: agent);
+          _prepareSetCurrentWeek(ptc, tc);
         case 'add_task':
           _prepareAddTask(ptc, tc);
         case 'add_reminder':
@@ -710,11 +717,11 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
         case 'query_semesters':
           await _executeQuerySemesters(ptc: ptc, tc: tc, agent: agent);
         case 'create_semester':
-          await _executeCreateSemester(ptc: ptc, tc: tc, agent: agent);
+          _prepareCreateSemester(ptc, tc);
         case 'update_semester':
-          await _executeUpdateSemester(ptc: ptc, tc: tc, agent: agent);
+          await _prepareUpdateSemester(ptc, tc);
         case 'delete_semester':
-          await _executeDeleteSemester(ptc: ptc, tc: tc, agent: agent, repo: repo);
+          await _prepareDeleteSemester(ptc, tc);
         case 'get_current_context':
           await _executeGetCurrentContext(ptc: ptc, tc: tc, agent: agent);
         case 'get_time':
@@ -1001,44 +1008,50 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     _rejectToolCall(ptc, msg, '用户拒绝了删除操作。');
   }
 
-  // ===== set_current_week — auto-execute =====
-  Future<void> _executeSetCurrentWeek({
-    required _PendingToolCall ptc,
-    required ChatToolCall tc,
-    required AiAgentService agent,
-  }) async {
+  // ===== set_current_week — pending confirmation =====
+  void _prepareSetCurrentWeek(_PendingToolCall ptc, ChatToolCall tc) {
     try {
       final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
-      final weekNumber = args['weekNumber'] as int;
-
-      final semester = ref.read(activeSemesterProvider);
-      if (semester == null) {
-        agent.addToolResult(tc.id, '当前没有活跃学期，无法设置周次。');
-      } else {
-        final now = DateTime.now();
-        final thisMonday = DateTime(now.year, now.month, now.day)
-            .subtract(Duration(days: now.weekday - 1));
-        final newStartDate =
-            thisMonday.subtract(Duration(days: (weekNumber - 1) * 7));
-
-        final updated = Semester(
-          id: semester.id,
-          name: semester.name,
-          startDate: newStartDate,
-          totalWeeks: semester.totalWeeks,
-          createdAt: semester.createdAt,
-        );
-        await ref.read(semesterRepositoryProvider).save(updated);
-
-        ptc.setWeekNumber = weekNumber;
-        agent.addToolResult(tc.id, '已将第$weekNumber周设为本周。');
-      }
-
-      ptc.status = _ToolCallStatus.confirmed;
+      ptc.setWeekNumber = args['weekNumber'] as int;
     } catch (e) {
-      agent.addToolResult(tc.id, '设置周次失败: $e');
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析周次参数失败: $e');
       ptc.status = _ToolCallStatus.confirmed;
     }
+  }
+
+  Future<void> _confirmSetCurrentWeek(
+      _PendingToolCall ptc, _UiMessage msg) async {
+    final weekNumber = ptc.setWeekNumber;
+    if (weekNumber == null) return;
+
+    final semester = ref.read(activeSemesterProvider);
+    if (semester == null) {
+      _confirmToolCall(ptc, msg, '当前没有活跃学期，无法设置周次。', '无活跃学期');
+      return;
+    }
+
+    final now = DateTime.now();
+    final thisMonday = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    final newStartDate =
+        thisMonday.subtract(Duration(days: (weekNumber - 1) * 7));
+
+    final updated = Semester(
+      id: semester.id,
+      name: semester.name,
+      startDate: newStartDate,
+      totalWeeks: semester.totalWeeks,
+      createdAt: semester.createdAt,
+    );
+    await ref.read(semesterRepositoryProvider).save(updated);
+
+    _confirmToolCall(ptc, msg,
+        '已将第$weekNumber周设为本周。', '已设置第$weekNumber周');
+  }
+
+  void _rejectSetCurrentWeek(_PendingToolCall ptc, _UiMessage msg) {
+    _rejectToolCall(ptc, msg, '用户拒绝了设置周次。');
   }
 
   // ===== Semester tools — auto-execute =====
@@ -1139,53 +1152,61 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     return '今日课程已结束';
   }
 
-  Future<void> _executeCreateSemester({
-    required _PendingToolCall ptc,
-    required ChatToolCall tc,
-    required AiAgentService agent,
-  }) async {
+  // ===== create_semester — pending confirmation =====
+  void _prepareCreateSemester(_PendingToolCall ptc, ChatToolCall tc) {
     try {
       final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
-      final name = args['name'] as String;
-      final startDateStr = args['startDate'] as String;
-      final totalWeeks = (args['totalWeeks'] as int?) ?? 20;
-      final setActive = (args['setActive'] as bool?) ?? true;
-
-      final startDate = DateTime.parse(startDateStr);
-      final id = _uuid.v4();
-
-      final semester = Semester(
-        id: id,
-        name: name,
-        startDate: startDate,
-        totalWeeks: totalWeeks,
-        createdAt: DateTime.now(),
-      );
-
-      await ref.read(semesterRepositoryProvider).save(semester);
-
-      if (setActive) {
-        final db = ref.read(appDatabaseProvider);
-        await SettingsDao(db).setValue('activeSemesterId', id);
-        ref.invalidate(activeSemesterIdProvider);
-      }
-
-      ref.invalidate(semestersProvider);
-
-      agent.addToolResult(
-          tc.id, '已创建学期「$name」${setActive ? '并设为活跃学期' : ''}。');
-      ptc.status = _ToolCallStatus.confirmed;
+      ptc.createSemesterFields = args;
     } catch (e) {
-      agent.addToolResult(tc.id, '创建学期失败: $e');
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析学期参数失败: $e');
       ptc.status = _ToolCallStatus.confirmed;
     }
   }
 
-  Future<void> _executeUpdateSemester({
-    required _PendingToolCall ptc,
-    required ChatToolCall tc,
-    required AiAgentService agent,
-  }) async {
+  Future<void> _confirmCreateSemester(
+      _PendingToolCall ptc, _UiMessage msg) async {
+    final args = ptc.createSemesterFields;
+    if (args == null) return;
+
+    final name = args['name'] as String;
+    final startDateStr = args['startDate'] as String;
+    final totalWeeks = (args['totalWeeks'] as int?) ?? 20;
+    final setActive = (args['setActive'] as bool?) ?? true;
+
+    final startDate = DateTime.parse(startDateStr);
+    final id = _uuid.v4();
+
+    final semester = Semester(
+      id: id,
+      name: name,
+      startDate: startDate,
+      totalWeeks: totalWeeks,
+      createdAt: DateTime.now(),
+    );
+
+    await ref.read(semesterRepositoryProvider).save(semester);
+
+    if (setActive) {
+      final db = ref.read(appDatabaseProvider);
+      await SettingsDao(db).setValue('activeSemesterId', id);
+      ref.invalidate(activeSemesterIdProvider);
+    }
+
+    ref.invalidate(semestersProvider);
+
+    _confirmToolCall(ptc, msg,
+        '已创建学期「$name」${setActive ? '并设为活跃学期' : ''}。',
+        '已创建学期「$name」');
+  }
+
+  void _rejectCreateSemester(_PendingToolCall ptc, _UiMessage msg) {
+    _rejectToolCall(ptc, msg, '用户拒绝了创建学期。');
+  }
+
+  // ===== update_semester — pending confirmation =====
+  Future<void> _prepareUpdateSemester(
+      _PendingToolCall ptc, ChatToolCall tc) async {
     try {
       final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
       final semesterId = args['semesterId'] as String;
@@ -1193,38 +1214,51 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       final existing =
           await ref.read(semesterRepositoryProvider).findById(semesterId);
       if (existing == null) {
-        agent.addToolResult(tc.id, '未找到 ID 为 $semesterId 的学期');
+        final agent = ref.read(aiAgentServiceProvider);
+        agent?.addToolResult(tc.id, '未找到 ID 为 $semesterId 的学期');
         ptc.status = _ToolCallStatus.confirmed;
         return;
       }
 
-      final updated = Semester(
-        id: existing.id,
-        name: (args['name'] as String?) ?? existing.name,
-        startDate: args['startDate'] != null
-            ? DateTime.parse(args['startDate'] as String)
-            : existing.startDate,
-        totalWeeks: (args['totalWeeks'] as int?) ?? existing.totalWeeks,
-        createdAt: existing.createdAt,
-      );
-
-      await ref.read(semesterRepositoryProvider).save(updated);
-      ref.invalidate(semestersProvider);
-
-      agent.addToolResult(tc.id, '已修改学期「${updated.name}」。');
-      ptc.status = _ToolCallStatus.confirmed;
+      ptc.updateSemesterOriginal = existing;
+      ptc.updateSemesterFields = args;
     } catch (e) {
-      agent.addToolResult(tc.id, '修改学期失败: $e');
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析学期参数失败: $e');
       ptc.status = _ToolCallStatus.confirmed;
     }
   }
 
-  Future<void> _executeDeleteSemester({
-    required _PendingToolCall ptc,
-    required ChatToolCall tc,
-    required AiAgentService agent,
-    required CourseRepository repo,
-  }) async {
+  Future<void> _confirmUpdateSemester(
+      _PendingToolCall ptc, _UiMessage msg) async {
+    final existing = ptc.updateSemesterOriginal;
+    final args = ptc.updateSemesterFields;
+    if (existing == null || args == null) return;
+
+    final updated = Semester(
+      id: existing.id,
+      name: (args['name'] as String?) ?? existing.name,
+      startDate: args['startDate'] != null
+          ? DateTime.parse(args['startDate'] as String)
+          : existing.startDate,
+      totalWeeks: (args['totalWeeks'] as int?) ?? existing.totalWeeks,
+      createdAt: existing.createdAt,
+    );
+
+    await ref.read(semesterRepositoryProvider).save(updated);
+    ref.invalidate(semestersProvider);
+
+    _confirmToolCall(ptc, msg,
+        '已修改学期「${updated.name}」。', '已修改学期「${updated.name}」');
+  }
+
+  void _rejectUpdateSemester(_PendingToolCall ptc, _UiMessage msg) {
+    _rejectToolCall(ptc, msg, '用户拒绝了修改学期。');
+  }
+
+  // ===== delete_semester — pending confirmation =====
+  Future<void> _prepareDeleteSemester(
+      _PendingToolCall ptc, ChatToolCall tc) async {
     try {
       final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
       final semesterId = args['semesterId'] as String;
@@ -1232,45 +1266,59 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       final existing =
           await ref.read(semesterRepositoryProvider).findById(semesterId);
       if (existing == null) {
-        agent.addToolResult(tc.id, '未找到 ID 为 $semesterId 的学期');
+        final agent = ref.read(aiAgentServiceProvider);
+        agent?.addToolResult(tc.id, '未找到 ID 为 $semesterId 的学期');
         ptc.status = _ToolCallStatus.confirmed;
         return;
       }
 
-      // Delete all courses in this semester first
-      final courseRepo = ref.read(courseRepositoryProvider);
-      final allCourses = await courseRepo.watchAll().first;
-      for (final c in allCourses) {
-        if (c.semesterId == semesterId) {
-          await courseRepo.delete(c.id);
-        }
-      }
-
-      await ref.read(semesterRepositoryProvider).delete(semesterId);
-
-      // If deleted semester was active, switch to another or clear
-      final activeId = ref.read(activeSemesterIdProvider).valueOrNull;
-      if (activeId == semesterId) {
-        final remaining =
-            await ref.read(semesterRepositoryProvider).watchAll().first;
-        final db = ref.read(appDatabaseProvider);
-        if (remaining.isNotEmpty) {
-          await SettingsDao(db)
-              .setValue('activeSemesterId', remaining.first.id);
-        } else {
-          await SettingsDao(db).deleteKey('activeSemesterId');
-        }
-        ref.invalidate(activeSemesterIdProvider);
-      }
-
-      ref.invalidate(semestersProvider);
-
-      agent.addToolResult(tc.id, '已删除学期「${existing.name}」。');
-      ptc.status = _ToolCallStatus.confirmed;
+      ptc.deleteSemester = existing;
     } catch (e) {
-      agent.addToolResult(tc.id, '删除学期失败: $e');
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析学期参数失败: $e');
       ptc.status = _ToolCallStatus.confirmed;
     }
+  }
+
+  Future<void> _confirmDeleteSemester(
+      _PendingToolCall ptc, _UiMessage msg) async {
+    final semester = ptc.deleteSemester;
+    if (semester == null) return;
+
+    // Delete all courses in this semester first
+    final courseRepo = ref.read(courseRepositoryProvider);
+    final allCourses = await courseRepo.watchAll().first;
+    for (final c in allCourses) {
+      if (c.semesterId == semester.id) {
+        await courseRepo.delete(c.id);
+      }
+    }
+
+    await ref.read(semesterRepositoryProvider).delete(semester.id);
+
+    // If deleted semester was active, switch to another or clear
+    final activeId = ref.read(activeSemesterIdProvider).valueOrNull;
+    if (activeId == semester.id) {
+      final remaining =
+          await ref.read(semesterRepositoryProvider).watchAll().first;
+      final db = ref.read(appDatabaseProvider);
+      if (remaining.isNotEmpty) {
+        await SettingsDao(db)
+            .setValue('activeSemesterId', remaining.first.id);
+      } else {
+        await SettingsDao(db).deleteKey('activeSemesterId');
+      }
+      ref.invalidate(activeSemesterIdProvider);
+    }
+
+    ref.invalidate(semestersProvider);
+
+    _confirmToolCall(ptc, msg,
+        '已删除学期「${semester.name}」。', '已删除学期「${semester.name}」');
+  }
+
+  void _rejectDeleteSemester(_PendingToolCall ptc, _UiMessage msg) {
+    _rejectToolCall(ptc, msg, '用户拒绝了删除学期。');
   }
 
   // ===== add_task — pending confirmation =====
@@ -2258,8 +2306,130 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
         if (ptc.setPeriodTimesFields != null) {
           return _buildSetPeriodTimesConfirmCard(ptc, msg, theme);
         }
+      case 'set_current_week':
+        if (ptc.setWeekNumber != null) {
+          return _buildSimpleConfirmCard(
+            ptc, msg, theme,
+            icon: Icons.date_range,
+            title: '设置当前周',
+            detail: '将第 ${ptc.setWeekNumber} 周设为本周',
+            onConfirm: () => _confirmSetCurrentWeek(ptc, msg),
+            onReject: () => _rejectSetCurrentWeek(ptc, msg),
+          );
+        }
+      case 'create_semester':
+        if (ptc.createSemesterFields != null) {
+          final f = ptc.createSemesterFields!;
+          return _buildSimpleConfirmCard(
+            ptc, msg, theme,
+            icon: Icons.school,
+            title: '创建学期',
+            detail: '「${f['name']}」共 ${f['totalWeeks'] ?? 20} 周',
+            onConfirm: () => _confirmCreateSemester(ptc, msg),
+            onReject: () => _rejectCreateSemester(ptc, msg),
+          );
+        }
+      case 'update_semester':
+        if (ptc.updateSemesterOriginal != null) {
+          return _buildSimpleConfirmCard(
+            ptc, msg, theme,
+            icon: Icons.edit_calendar,
+            title: '修改学期',
+            detail: '「${ptc.updateSemesterOriginal!.name}」',
+            onConfirm: () => _confirmUpdateSemester(ptc, msg),
+            onReject: () => _rejectUpdateSemester(ptc, msg),
+          );
+        }
+      case 'delete_semester':
+        if (ptc.deleteSemester != null) {
+          return _buildSimpleConfirmCard(
+            ptc, msg, theme,
+            icon: Icons.delete_forever,
+            title: '删除学期',
+            detail: '「${ptc.deleteSemester!.name}」及其所有课程',
+            onConfirm: () => _confirmDeleteSemester(ptc, msg),
+            onReject: () => _rejectDeleteSemester(ptc, msg),
+          );
+        }
     }
     return const SizedBox.shrink();
+  }
+
+  /// Generic confirmation card for simple write operations.
+  Widget _buildSimpleConfirmCard(
+    _PendingToolCall ptc,
+    _UiMessage msg,
+    ThemeData theme, {
+    required IconData icon,
+    required String title,
+    required String detail,
+    required VoidCallback onConfirm,
+    required VoidCallback onReject,
+  }) {
+    final status = ptc.status;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : icon,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : status == _ToolCallStatus.rejected
+                            ? theme.colorScheme.error
+                            : null,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '$title (已确认)'
+                        : status == _ToolCallStatus.rejected
+                            ? '$title (已拒绝)'
+                            : title,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(detail, style: theme.textTheme.bodySmall),
+              ),
+              if (status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: onConfirm,
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('确认'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: onReject,
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildCourseConfirmCard(_PendingToolCall ptc, _UiMessage msg, ThemeData theme) {

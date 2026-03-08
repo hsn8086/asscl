@@ -23,11 +23,15 @@ abstract interface class BotPlatformService {
 /// A message received from the bot platform.
 class BotIncomingMessage {
   final String chatId;
+  final String? senderId;
+  final String chatType;
   final int messageId;
   final String text;
 
   const BotIncomingMessage({
     required this.chatId,
+    this.senderId,
+    this.chatType = 'private',
     required this.messageId,
     required this.text,
   });

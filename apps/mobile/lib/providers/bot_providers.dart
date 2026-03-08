@@ -12,6 +12,7 @@ import 'proxy_providers.dart';
 class TgBotConfig {
   final String token;
   final String chatId;
+  final String? ownerId;
   final bool notifyEnabled;
   final bool agentEnabled;
   final bool keepAlive;
@@ -19,6 +20,7 @@ class TgBotConfig {
   const TgBotConfig({
     required this.token,
     required this.chatId,
+    this.ownerId,
     this.notifyEnabled = false,
     this.agentEnabled = false,
     this.keepAlive = false,
@@ -41,10 +43,12 @@ final tgConfigProvider = FutureProvider<TgBotConfig?>((ref) async {
   final notify = await dao.getValue('tgNotifyEnabled');
   final agent = await dao.getValue('tgAgentEnabled');
   final keepAlive = await dao.getValue('tgKeepAlive');
+  final ownerId = await dao.getValue('tgOwnerId');
 
   return TgBotConfig(
     token: token,
     chatId: chatId ?? '',
+    ownerId: ownerId,
     notifyEnabled: notify == 'true',
     agentEnabled: agent == 'true',
     keepAlive: keepAlive == 'true',

@@ -24,8 +24,9 @@ class _ReminderFormPageState extends ConsumerState<ReminderFormPage> {
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
 
-  DateTime _scheduledDate = DateTime.now().add(const Duration(hours: 1));
-  TimeOfDay _scheduledTime = TimeOfDay.now();
+  late final DateTime _defaultDateTime = DateTime.now().add(const Duration(hours: 1));
+  late DateTime _scheduledDate = _defaultDateTime;
+  late TimeOfDay _scheduledTime = TimeOfDay.fromDateTime(_defaultDateTime);
   ReminderType _type = ReminderType.custom;
   bool _isLoading = false;
   Reminder? _existingReminder;
@@ -70,6 +71,15 @@ class _ReminderFormPageState extends ConsumerState<ReminderFormPage> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_combinedDateTime.isBefore(DateTime.now())) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('提醒时间不能是过去')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isLoading = true);
 

@@ -3,6 +3,367 @@
 part of 'app_database.dart';
 
 // ignore_for_file: type=lint
+class $SemestersTableTable extends SemestersTable
+    with TableInfo<$SemestersTableTable, SemestersTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SemestersTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startDate = GeneratedColumn<DateTime>(
+    'start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totalWeeksMeta = const VerificationMeta(
+    'totalWeeks',
+  );
+  @override
+  late final GeneratedColumn<int> totalWeeks = GeneratedColumn<int>(
+    'total_weeks',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(20),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    startDate,
+    totalWeeks,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'semesters_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SemestersTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startDateMeta);
+    }
+    if (data.containsKey('total_weeks')) {
+      context.handle(
+        _totalWeeksMeta,
+        totalWeeks.isAcceptableOrUnknown(data['total_weeks']!, _totalWeeksMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SemestersTableData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SemestersTableData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_date'],
+      )!,
+      totalWeeks: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_weeks'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SemestersTableTable createAlias(String alias) {
+    return $SemestersTableTable(attachedDatabase, alias);
+  }
+}
+
+class SemestersTableData extends DataClass
+    implements Insertable<SemestersTableData> {
+  final String id;
+  final String name;
+  final DateTime startDate;
+  final int totalWeeks;
+  final DateTime createdAt;
+  const SemestersTableData({
+    required this.id,
+    required this.name,
+    required this.startDate,
+    required this.totalWeeks,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['start_date'] = Variable<DateTime>(startDate);
+    map['total_weeks'] = Variable<int>(totalWeeks);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SemestersTableCompanion toCompanion(bool nullToAbsent) {
+    return SemestersTableCompanion(
+      id: Value(id),
+      name: Value(name),
+      startDate: Value(startDate),
+      totalWeeks: Value(totalWeeks),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SemestersTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SemestersTableData(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      startDate: serializer.fromJson<DateTime>(json['startDate']),
+      totalWeeks: serializer.fromJson<int>(json['totalWeeks']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'startDate': serializer.toJson<DateTime>(startDate),
+      'totalWeeks': serializer.toJson<int>(totalWeeks),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SemestersTableData copyWith({
+    String? id,
+    String? name,
+    DateTime? startDate,
+    int? totalWeeks,
+    DateTime? createdAt,
+  }) => SemestersTableData(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    startDate: startDate ?? this.startDate,
+    totalWeeks: totalWeeks ?? this.totalWeeks,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SemestersTableData copyWithCompanion(SemestersTableCompanion data) {
+    return SemestersTableData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      totalWeeks: data.totalWeeks.present
+          ? data.totalWeeks.value
+          : this.totalWeeks,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SemestersTableData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('startDate: $startDate, ')
+          ..write('totalWeeks: $totalWeeks, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, startDate, totalWeeks, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SemestersTableData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.startDate == this.startDate &&
+          other.totalWeeks == this.totalWeeks &&
+          other.createdAt == this.createdAt);
+}
+
+class SemestersTableCompanion extends UpdateCompanion<SemestersTableData> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<DateTime> startDate;
+  final Value<int> totalWeeks;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const SemestersTableCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.totalWeeks = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SemestersTableCompanion.insert({
+    required String id,
+    required String name,
+    required DateTime startDate,
+    this.totalWeeks = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       startDate = Value(startDate),
+       createdAt = Value(createdAt);
+  static Insertable<SemestersTableData> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<DateTime>? startDate,
+    Expression<int>? totalWeeks,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (startDate != null) 'start_date': startDate,
+      if (totalWeeks != null) 'total_weeks': totalWeeks,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SemestersTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<DateTime>? startDate,
+    Value<int>? totalWeeks,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return SemestersTableCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      startDate: startDate ?? this.startDate,
+      totalWeeks: totalWeeks ?? this.totalWeeks,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<DateTime>(startDate.value);
+    }
+    if (totalWeeks.present) {
+      map['total_weeks'] = Variable<int>(totalWeeks.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SemestersTableCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('startDate: $startDate, ')
+          ..write('totalWeeks: $totalWeeks, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CoursesTableTable extends CoursesTable
     with TableInfo<$CoursesTableTable, CoursesTableData> {
   @override
@@ -122,6 +483,9 @@ class $CoursesTableTable extends CoursesTable
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES semesters_table (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
@@ -3135,7 +3499,7 @@ class $ChatMessagesTableTable extends ChatMessagesTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES chat_sessions_table (id)',
+      'REFERENCES chat_sessions_table (id) ON DELETE CASCADE',
     ),
   );
   static const VerificationMeta _roleMeta = const VerificationMeta('role');
@@ -3588,370 +3952,10 @@ class ChatMessagesTableCompanion
   }
 }
 
-class $SemestersTableTable extends SemestersTable
-    with TableInfo<$SemestersTableTable, SemestersTableData> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $SemestersTableTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _startDateMeta = const VerificationMeta(
-    'startDate',
-  );
-  @override
-  late final GeneratedColumn<DateTime> startDate = GeneratedColumn<DateTime>(
-    'start_date',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _totalWeeksMeta = const VerificationMeta(
-    'totalWeeks',
-  );
-  @override
-  late final GeneratedColumn<int> totalWeeks = GeneratedColumn<int>(
-    'total_weeks',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(20),
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    name,
-    startDate,
-    totalWeeks,
-    createdAt,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'semesters_table';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<SemestersTableData> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('start_date')) {
-      context.handle(
-        _startDateMeta,
-        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_startDateMeta);
-    }
-    if (data.containsKey('total_weeks')) {
-      context.handle(
-        _totalWeeksMeta,
-        totalWeeks.isAcceptableOrUnknown(data['total_weeks']!, _totalWeeksMeta),
-      );
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_createdAtMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  SemestersTableData map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return SemestersTableData(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      startDate: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}start_date'],
-      )!,
-      totalWeeks: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}total_weeks'],
-      )!,
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-    );
-  }
-
-  @override
-  $SemestersTableTable createAlias(String alias) {
-    return $SemestersTableTable(attachedDatabase, alias);
-  }
-}
-
-class SemestersTableData extends DataClass
-    implements Insertable<SemestersTableData> {
-  final String id;
-  final String name;
-  final DateTime startDate;
-  final int totalWeeks;
-  final DateTime createdAt;
-  const SemestersTableData({
-    required this.id,
-    required this.name,
-    required this.startDate,
-    required this.totalWeeks,
-    required this.createdAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['name'] = Variable<String>(name);
-    map['start_date'] = Variable<DateTime>(startDate);
-    map['total_weeks'] = Variable<int>(totalWeeks);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    return map;
-  }
-
-  SemestersTableCompanion toCompanion(bool nullToAbsent) {
-    return SemestersTableCompanion(
-      id: Value(id),
-      name: Value(name),
-      startDate: Value(startDate),
-      totalWeeks: Value(totalWeeks),
-      createdAt: Value(createdAt),
-    );
-  }
-
-  factory SemestersTableData.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return SemestersTableData(
-      id: serializer.fromJson<String>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      startDate: serializer.fromJson<DateTime>(json['startDate']),
-      totalWeeks: serializer.fromJson<int>(json['totalWeeks']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'name': serializer.toJson<String>(name),
-      'startDate': serializer.toJson<DateTime>(startDate),
-      'totalWeeks': serializer.toJson<int>(totalWeeks),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-    };
-  }
-
-  SemestersTableData copyWith({
-    String? id,
-    String? name,
-    DateTime? startDate,
-    int? totalWeeks,
-    DateTime? createdAt,
-  }) => SemestersTableData(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    startDate: startDate ?? this.startDate,
-    totalWeeks: totalWeeks ?? this.totalWeeks,
-    createdAt: createdAt ?? this.createdAt,
-  );
-  SemestersTableData copyWithCompanion(SemestersTableCompanion data) {
-    return SemestersTableData(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      startDate: data.startDate.present ? data.startDate.value : this.startDate,
-      totalWeeks: data.totalWeeks.present
-          ? data.totalWeeks.value
-          : this.totalWeeks,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SemestersTableData(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('startDate: $startDate, ')
-          ..write('totalWeeks: $totalWeeks, ')
-          ..write('createdAt: $createdAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, name, startDate, totalWeeks, createdAt);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is SemestersTableData &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.startDate == this.startDate &&
-          other.totalWeeks == this.totalWeeks &&
-          other.createdAt == this.createdAt);
-}
-
-class SemestersTableCompanion extends UpdateCompanion<SemestersTableData> {
-  final Value<String> id;
-  final Value<String> name;
-  final Value<DateTime> startDate;
-  final Value<int> totalWeeks;
-  final Value<DateTime> createdAt;
-  final Value<int> rowid;
-  const SemestersTableCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.startDate = const Value.absent(),
-    this.totalWeeks = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  SemestersTableCompanion.insert({
-    required String id,
-    required String name,
-    required DateTime startDate,
-    this.totalWeeks = const Value.absent(),
-    required DateTime createdAt,
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       name = Value(name),
-       startDate = Value(startDate),
-       createdAt = Value(createdAt);
-  static Insertable<SemestersTableData> custom({
-    Expression<String>? id,
-    Expression<String>? name,
-    Expression<DateTime>? startDate,
-    Expression<int>? totalWeeks,
-    Expression<DateTime>? createdAt,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (startDate != null) 'start_date': startDate,
-      if (totalWeeks != null) 'total_weeks': totalWeeks,
-      if (createdAt != null) 'created_at': createdAt,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  SemestersTableCompanion copyWith({
-    Value<String>? id,
-    Value<String>? name,
-    Value<DateTime>? startDate,
-    Value<int>? totalWeeks,
-    Value<DateTime>? createdAt,
-    Value<int>? rowid,
-  }) {
-    return SemestersTableCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      startDate: startDate ?? this.startDate,
-      totalWeeks: totalWeeks ?? this.totalWeeks,
-      createdAt: createdAt ?? this.createdAt,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (startDate.present) {
-      map['start_date'] = Variable<DateTime>(startDate.value);
-    }
-    if (totalWeeks.present) {
-      map['total_weeks'] = Variable<int>(totalWeeks.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SemestersTableCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('startDate: $startDate, ')
-          ..write('totalWeeks: $totalWeeks, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
+  late final $SemestersTableTable semestersTable = $SemestersTableTable(this);
   late final $CoursesTableTable coursesTable = $CoursesTableTable(this);
   late final $TasksTableTable tasksTable = $TasksTableTable(this);
   late final $SubTasksTableTable subTasksTable = $SubTasksTableTable(this);
@@ -3964,7 +3968,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $ChatSessionsTableTable(this);
   late final $ChatMessagesTableTable chatMessagesTable =
       $ChatMessagesTableTable(this);
-  late final $SemestersTableTable semestersTable = $SemestersTableTable(this);
   late final CourseDao courseDao = CourseDao(this as AppDatabase);
   late final TaskDao taskDao = TaskDao(this as AppDatabase);
   late final ReminderDao reminderDao = ReminderDao(this as AppDatabase);
@@ -3979,6 +3982,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
+    semestersTable,
     coursesTable,
     tasksTable,
     subTasksTable,
@@ -3987,10 +3991,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     settingsTable,
     chatSessionsTable,
     chatMessagesTable,
-    semestersTable,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'semesters_table',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('courses_table', kind: UpdateKind.delete)],
+    ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
         'tasks_table',
@@ -3998,9 +4008,333 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       ),
       result: [TableUpdate('sub_tasks_table', kind: UpdateKind.delete)],
     ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'chat_sessions_table',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('chat_messages_table', kind: UpdateKind.delete)],
+    ),
   ]);
 }
 
+typedef $$SemestersTableTableCreateCompanionBuilder =
+    SemestersTableCompanion Function({
+      required String id,
+      required String name,
+      required DateTime startDate,
+      Value<int> totalWeeks,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$SemestersTableTableUpdateCompanionBuilder =
+    SemestersTableCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<DateTime> startDate,
+      Value<int> totalWeeks,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$SemestersTableTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $SemestersTableTable,
+          SemestersTableData
+        > {
+  $$SemestersTableTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$CoursesTableTable, List<CoursesTableData>>
+  _coursesTableRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.coursesTable,
+    aliasName: $_aliasNameGenerator(
+      db.semestersTable.id,
+      db.coursesTable.semesterId,
+    ),
+  );
+
+  $$CoursesTableTableProcessedTableManager get coursesTableRefs {
+    final manager = $$CoursesTableTableTableManager(
+      $_db,
+      $_db.coursesTable,
+    ).filter((f) => f.semesterId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_coursesTableRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$SemestersTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SemestersTableTable> {
+  $$SemestersTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalWeeks => $composableBuilder(
+    column: $table.totalWeeks,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> coursesTableRefs(
+    Expression<bool> Function($$CoursesTableTableFilterComposer f) f,
+  ) {
+    final $$CoursesTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.coursesTable,
+      getReferencedColumn: (t) => t.semesterId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CoursesTableTableFilterComposer(
+            $db: $db,
+            $table: $db.coursesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$SemestersTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SemestersTableTable> {
+  $$SemestersTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalWeeks => $composableBuilder(
+    column: $table.totalWeeks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SemestersTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SemestersTableTable> {
+  $$SemestersTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<int> get totalWeeks => $composableBuilder(
+    column: $table.totalWeeks,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  Expression<T> coursesTableRefs<T extends Object>(
+    Expression<T> Function($$CoursesTableTableAnnotationComposer a) f,
+  ) {
+    final $$CoursesTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.coursesTable,
+      getReferencedColumn: (t) => t.semesterId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CoursesTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.coursesTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$SemestersTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SemestersTableTable,
+          SemestersTableData,
+          $$SemestersTableTableFilterComposer,
+          $$SemestersTableTableOrderingComposer,
+          $$SemestersTableTableAnnotationComposer,
+          $$SemestersTableTableCreateCompanionBuilder,
+          $$SemestersTableTableUpdateCompanionBuilder,
+          (SemestersTableData, $$SemestersTableTableReferences),
+          SemestersTableData,
+          PrefetchHooks Function({bool coursesTableRefs})
+        > {
+  $$SemestersTableTableTableManager(
+    _$AppDatabase db,
+    $SemestersTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SemestersTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SemestersTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SemestersTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<DateTime> startDate = const Value.absent(),
+                Value<int> totalWeeks = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SemestersTableCompanion(
+                id: id,
+                name: name,
+                startDate: startDate,
+                totalWeeks: totalWeeks,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required DateTime startDate,
+                Value<int> totalWeeks = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SemestersTableCompanion.insert(
+                id: id,
+                name: name,
+                startDate: startDate,
+                totalWeeks: totalWeeks,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SemestersTableTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({coursesTableRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (coursesTableRefs) db.coursesTable],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (coursesTableRefs)
+                    await $_getPrefetchedData<
+                      SemestersTableData,
+                      $SemestersTableTable,
+                      CoursesTableData
+                    >(
+                      currentTable: table,
+                      referencedTable: $$SemestersTableTableReferences
+                          ._coursesTableRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$SemestersTableTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).coursesTableRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.semesterId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SemestersTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SemestersTableTable,
+      SemestersTableData,
+      $$SemestersTableTableFilterComposer,
+      $$SemestersTableTableOrderingComposer,
+      $$SemestersTableTableAnnotationComposer,
+      $$SemestersTableTableCreateCompanionBuilder,
+      $$SemestersTableTableUpdateCompanionBuilder,
+      (SemestersTableData, $$SemestersTableTableReferences),
+      SemestersTableData,
+      PrefetchHooks Function({bool coursesTableRefs})
+    >;
 typedef $$CoursesTableTableCreateCompanionBuilder =
     CoursesTableCompanion Function({
       required String id,
@@ -4035,6 +4369,31 @@ typedef $$CoursesTableTableUpdateCompanionBuilder =
       Value<DateTime> updatedAt,
       Value<int> rowid,
     });
+
+final class $$CoursesTableTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $CoursesTableTable, CoursesTableData> {
+  $$CoursesTableTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $SemestersTableTable _semesterIdTable(_$AppDatabase db) =>
+      db.semestersTable.createAlias(
+        $_aliasNameGenerator(db.coursesTable.semesterId, db.semestersTable.id),
+      );
+
+  $$SemestersTableTableProcessedTableManager? get semesterId {
+    final $_column = $_itemColumn<String>('semester_id');
+    if ($_column == null) return null;
+    final manager = $$SemestersTableTableTableManager(
+      $_db,
+      $_db.semestersTable,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_semesterIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$CoursesTableTableFilterComposer
     extends Composer<_$AppDatabase, $CoursesTableTable> {
@@ -4096,11 +4455,6 @@ class $$CoursesTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get semesterId => $composableBuilder(
-    column: $table.semesterId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
@@ -4110,6 +4464,29 @@ class $$CoursesTableTableFilterComposer
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$SemestersTableTableFilterComposer get semesterId {
+    final $$SemestersTableTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.semesterId,
+      referencedTable: $db.semestersTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SemestersTableTableFilterComposer(
+            $db: $db,
+            $table: $db.semestersTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CoursesTableTableOrderingComposer
@@ -4171,11 +4548,6 @@ class $$CoursesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get semesterId => $composableBuilder(
-    column: $table.semesterId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4185,6 +4557,29 @@ class $$CoursesTableTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$SemestersTableTableOrderingComposer get semesterId {
+    final $$SemestersTableTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.semesterId,
+      referencedTable: $db.semestersTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SemestersTableTableOrderingComposer(
+            $db: $db,
+            $table: $db.semestersTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CoursesTableTableAnnotationComposer
@@ -4230,16 +4625,34 @@ class $$CoursesTableTableAnnotationComposer
   GeneratedColumn<String> get color =>
       $composableBuilder(column: $table.color, builder: (column) => column);
 
-  GeneratedColumn<String> get semesterId => $composableBuilder(
-    column: $table.semesterId,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$SemestersTableTableAnnotationComposer get semesterId {
+    final $$SemestersTableTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.semesterId,
+      referencedTable: $db.semestersTable,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SemestersTableTableAnnotationComposer(
+            $db: $db,
+            $table: $db.semestersTable,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CoursesTableTableTableManager
@@ -4253,12 +4666,9 @@ class $$CoursesTableTableTableManager
           $$CoursesTableTableAnnotationComposer,
           $$CoursesTableTableCreateCompanionBuilder,
           $$CoursesTableTableUpdateCompanionBuilder,
-          (
-            CoursesTableData,
-            BaseReferences<_$AppDatabase, $CoursesTableTable, CoursesTableData>,
-          ),
+          (CoursesTableData, $$CoursesTableTableReferences),
           CoursesTableData,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool semesterId})
         > {
   $$CoursesTableTableTableManager(_$AppDatabase db, $CoursesTableTable table)
     : super(
@@ -4336,9 +4746,54 @@ class $$CoursesTableTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CoursesTableTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({semesterId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (semesterId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.semesterId,
+                                referencedTable: $$CoursesTableTableReferences
+                                    ._semesterIdTable(db),
+                                referencedColumn: $$CoursesTableTableReferences
+                                    ._semesterIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -4353,12 +4808,9 @@ typedef $$CoursesTableTableProcessedTableManager =
       $$CoursesTableTableAnnotationComposer,
       $$CoursesTableTableCreateCompanionBuilder,
       $$CoursesTableTableUpdateCompanionBuilder,
-      (
-        CoursesTableData,
-        BaseReferences<_$AppDatabase, $CoursesTableTable, CoursesTableData>,
-      ),
+      (CoursesTableData, $$CoursesTableTableReferences),
       CoursesTableData,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool semesterId})
     >;
 typedef $$TasksTableTableCreateCompanionBuilder =
     TasksTableCompanion Function({
@@ -6375,218 +6827,12 @@ typedef $$ChatMessagesTableTableProcessedTableManager =
       ChatMessagesTableData,
       PrefetchHooks Function({bool sessionId})
     >;
-typedef $$SemestersTableTableCreateCompanionBuilder =
-    SemestersTableCompanion Function({
-      required String id,
-      required String name,
-      required DateTime startDate,
-      Value<int> totalWeeks,
-      required DateTime createdAt,
-      Value<int> rowid,
-    });
-typedef $$SemestersTableTableUpdateCompanionBuilder =
-    SemestersTableCompanion Function({
-      Value<String> id,
-      Value<String> name,
-      Value<DateTime> startDate,
-      Value<int> totalWeeks,
-      Value<DateTime> createdAt,
-      Value<int> rowid,
-    });
-
-class $$SemestersTableTableFilterComposer
-    extends Composer<_$AppDatabase, $SemestersTableTable> {
-  $$SemestersTableTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get startDate => $composableBuilder(
-    column: $table.startDate,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get totalWeeks => $composableBuilder(
-    column: $table.totalWeeks,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$SemestersTableTableOrderingComposer
-    extends Composer<_$AppDatabase, $SemestersTableTable> {
-  $$SemestersTableTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get startDate => $composableBuilder(
-    column: $table.startDate,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get totalWeeks => $composableBuilder(
-    column: $table.totalWeeks,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$SemestersTableTableAnnotationComposer
-    extends Composer<_$AppDatabase, $SemestersTableTable> {
-  $$SemestersTableTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get startDate =>
-      $composableBuilder(column: $table.startDate, builder: (column) => column);
-
-  GeneratedColumn<int> get totalWeeks => $composableBuilder(
-    column: $table.totalWeeks,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-}
-
-class $$SemestersTableTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $SemestersTableTable,
-          SemestersTableData,
-          $$SemestersTableTableFilterComposer,
-          $$SemestersTableTableOrderingComposer,
-          $$SemestersTableTableAnnotationComposer,
-          $$SemestersTableTableCreateCompanionBuilder,
-          $$SemestersTableTableUpdateCompanionBuilder,
-          (
-            SemestersTableData,
-            BaseReferences<
-              _$AppDatabase,
-              $SemestersTableTable,
-              SemestersTableData
-            >,
-          ),
-          SemestersTableData,
-          PrefetchHooks Function()
-        > {
-  $$SemestersTableTableTableManager(
-    _$AppDatabase db,
-    $SemestersTableTable table,
-  ) : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$SemestersTableTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$SemestersTableTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$SemestersTableTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<DateTime> startDate = const Value.absent(),
-                Value<int> totalWeeks = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => SemestersTableCompanion(
-                id: id,
-                name: name,
-                startDate: startDate,
-                totalWeeks: totalWeeks,
-                createdAt: createdAt,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                required String name,
-                required DateTime startDate,
-                Value<int> totalWeeks = const Value.absent(),
-                required DateTime createdAt,
-                Value<int> rowid = const Value.absent(),
-              }) => SemestersTableCompanion.insert(
-                id: id,
-                name: name,
-                startDate: startDate,
-                totalWeeks: totalWeeks,
-                createdAt: createdAt,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$SemestersTableTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $SemestersTableTable,
-      SemestersTableData,
-      $$SemestersTableTableFilterComposer,
-      $$SemestersTableTableOrderingComposer,
-      $$SemestersTableTableAnnotationComposer,
-      $$SemestersTableTableCreateCompanionBuilder,
-      $$SemestersTableTableUpdateCompanionBuilder,
-      (
-        SemestersTableData,
-        BaseReferences<_$AppDatabase, $SemestersTableTable, SemestersTableData>,
-      ),
-      SemestersTableData,
-      PrefetchHooks Function()
-    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
+  $$SemestersTableTableTableManager get semestersTable =>
+      $$SemestersTableTableTableManager(_db, _db.semestersTable);
   $$CoursesTableTableTableManager get coursesTable =>
       $$CoursesTableTableTableManager(_db, _db.coursesTable);
   $$TasksTableTableTableManager get tasksTable =>
@@ -6603,6 +6849,4 @@ class $AppDatabaseManager {
       $$ChatSessionsTableTableTableManager(_db, _db.chatSessionsTable);
   $$ChatMessagesTableTableTableManager get chatMessagesTable =>
       $$ChatMessagesTableTableTableManager(_db, _db.chatMessagesTable);
-  $$SemestersTableTableTableManager get semestersTable =>
-      $$SemestersTableTableTableManager(_db, _db.semestersTable);
 }

@@ -23,7 +23,7 @@ class SyncService {
   final AppDatabase db;
   final WebDavService webdav;
 
-  /// Settings keys excluded from backup (device-specific or transient).
+  /// Settings keys excluded from backup (device-specific, transient, or sensitive).
   static const _excludedSettingsKeys = {
     'onboardingCompleted',
     'webdavUrl',
@@ -31,6 +31,13 @@ class SyncService {
     'webdavPassword',
     'webdavRemotePath',
     'weatherAlertLastDate',
+    // Sensitive credentials — must not leak via sync.
+    'aiApiKey',
+    'tgBotToken',
+    'tgOwnerId',
+    'proxyUrl',
+    'proxyUsername',
+    'proxyPassword',
   };
 
   SyncService({required this.db, required this.webdav});
@@ -44,11 +51,27 @@ class SyncService {
     await webdav.upload(bytes);
   }
 
+  /// Maximum backup size to download (50 MB).
+  static const _maxDownloadBytes = 50 * 1024 * 1024;
+
   /// Download from WebDAV and restore all data.
   Future<void> downloadRestore() async {
     final bytes = await webdav.download();
-    final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-    await _importAll(json);
+    if (bytes.length > _maxDownloadBytes) {
+      throw WebDavException(
+          '备份文件过大 (${(bytes.length / 1024 / 1024).toStringAsFixed(1)} MB)，'
+          '上限为 ${_maxDownloadBytes ~/ 1024 ~/ 1024} MB');
+    }
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(bytes));
+    } catch (e) {
+      throw WebDavException('备份文件格式错误，无法解析 JSON');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw WebDavException('备份文件格式错误，顶层结构不是 JSON 对象');
+    }
+    await _importAll(decoded);
   }
 
   Future<Map<String, dynamic>> _exportAll() async {

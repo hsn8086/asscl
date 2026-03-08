@@ -49,30 +49,9 @@ final aiImportServiceProvider = Provider<AiImportService?>((ref) {
   return AiImportServiceImpl(config: config, client: client);
 });
 
-/// Provides an AiAgentService that persists across navigation.
-/// Cached: only recreates if the config values actually change.
-AiAgentService? _cachedAgent;
-AiImportConfig? _lastAgentConfig;
-http.Client? _lastAgentClient;
-
-final aiAgentServiceProvider = Provider<AiAgentService?>((ref) {
-  final config = ref.watch(aiConfigProvider).valueOrNull;
-  final client = ref.watch(httpClientProvider);
-  if (config == null) {
-    // Config cleared — drop stale cached agent to prevent state pollution.
-    _cachedAgent = null;
-    _lastAgentConfig = null;
-    _lastAgentClient = null;
-    return null;
-  }
-  if (_cachedAgent != null &&
-      _lastAgentConfig == config &&
-      _lastAgentClient == client) {
-    return _cachedAgent;
-  }
-  _lastAgentConfig = config;
-  _lastAgentClient = client;
-  _cachedAgent = AiAgentServiceImpl(
+/// Creates an [AiAgentServiceImpl] using the current config and proxy.
+AiAgentServiceImpl? _createAgent(Ref ref, AiImportConfig config, http.Client client) {
+  return AiAgentServiceImpl(
     config: config,
     client: client,
     clientFactory: () {
@@ -84,7 +63,56 @@ final aiAgentServiceProvider = Provider<AiAgentService?>((ref) {
       return http.Client();
     },
   );
-  return _cachedAgent;
+}
+
+/// App-side AI agent — persists across navigation, isolated from Bot.
+AiAgentService? _cachedAppAgent;
+AiImportConfig? _lastAppConfig;
+http.Client? _lastAppClient;
+
+final aiAgentServiceProvider = Provider<AiAgentService?>((ref) {
+  final config = ref.watch(aiConfigProvider).valueOrNull;
+  final client = ref.watch(httpClientProvider);
+  if (config == null) {
+    _cachedAppAgent = null;
+    _lastAppConfig = null;
+    _lastAppClient = null;
+    return null;
+  }
+  if (_cachedAppAgent != null &&
+      _lastAppConfig == config &&
+      _lastAppClient == client) {
+    return _cachedAppAgent;
+  }
+  _lastAppConfig = config;
+  _lastAppClient = client;
+  _cachedAppAgent = _createAgent(ref, config, client);
+  return _cachedAppAgent;
+});
+
+/// Bot-side AI agent — separate instance with its own conversation history.
+AiAgentService? _cachedBotAgent;
+AiImportConfig? _lastBotConfig;
+http.Client? _lastBotClient;
+
+final botAgentServiceProvider = Provider<AiAgentService?>((ref) {
+  final config = ref.watch(aiConfigProvider).valueOrNull;
+  final client = ref.watch(httpClientProvider);
+  if (config == null) {
+    _cachedBotAgent = null;
+    _lastBotConfig = null;
+    _lastBotClient = null;
+    return null;
+  }
+  if (_cachedBotAgent != null &&
+      _lastBotConfig == config &&
+      _lastBotClient == client) {
+    return _cachedBotAgent;
+  }
+  _lastBotConfig = config;
+  _lastBotClient = client;
+  _cachedBotAgent = _createAgent(ref, config, client);
+  return _cachedBotAgent;
 });
 
 /// ChatSessionDao provider.

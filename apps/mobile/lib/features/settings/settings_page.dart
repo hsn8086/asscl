@@ -1,4 +1,5 @@
 import 'package:data/data.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -174,20 +175,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
 
           // ── 其他 ──
-          _SectionHeader('其他'),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                _NavTile(
-                  icon: Icons.developer_mode,
-                  title: '开发者选项',
-                  subtitle: '调试工具和诊断信息',
-                  onTap: () => context.push('/settings/developer'),
-                ),
-              ],
+          if (kDebugMode) ...[
+            _SectionHeader('其他'),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _NavTile(
+                    icon: Icons.developer_mode,
+                    title: '开发者选项',
+                    subtitle: '调试工具和诊断信息',
+                    onTap: () => context.push('/settings/developer'),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
 
           const SizedBox(height: 32),
         ],

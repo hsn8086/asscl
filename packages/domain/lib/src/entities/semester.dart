@@ -24,6 +24,19 @@ class Semester extends Equatable {
     return week.clamp(1, totalWeeks);
   }
 
+  /// Whether [now] is before the semester start date.
+  bool hasStarted([DateTime? now]) {
+    final today = now ?? DateTime.now();
+    return !today.isBefore(startDate);
+  }
+
+  /// Whether [now] is after the last day of the semester.
+  bool hasEnded([DateTime? now]) {
+    final today = now ?? DateTime.now();
+    final endDate = startDate.add(Duration(days: totalWeeks * 7));
+    return today.isAfter(endDate);
+  }
+
   @override
   List<Object?> get props => [id, name, startDate, totalWeeks, createdAt];
 }
