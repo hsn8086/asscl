@@ -44,7 +44,7 @@ dependencies:
   gpt_markdown: ^1.1.5
   flutter_foreground_task: ^9.2.1
   geolocator: ^13.0.2
-  record: ^5.2.0
+  record: ^6.2.0
   path_provider: ^2.1.0
 
 dev_dependencies:
