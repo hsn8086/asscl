@@ -12,11 +12,13 @@ class CourseCard extends ConsumerWidget {
   final Course course;
   final bool expanded;
   final int spanPeriods;
+  final double cellHeight;
 
   const CourseCard({
     required this.course,
     this.expanded = false,
     this.spanPeriods = 1,
+    this.cellHeight = 60.0,
     super.key,
   });
 
@@ -63,6 +65,10 @@ class CourseCard extends ConsumerWidget {
         ref.watch(shortenedCourseNamesProvider).valueOrNull ?? {};
     final displayName = lookupShortName(shortenedNames, course.name) ?? course.name;
 
+    final scale = cellHeight / 60.0;
+    final nameFontSize = ((spanPeriods > 1 ? 11.0 : 10.0) * scale).clamp(8.0, 14.0);
+    final detailFontSize = (9.0 * scale).clamp(7.0, 11.0);
+
     return GestureDetector(
       onTap: () => context.go('/schedule/course/${course.id}'),
       child: Container(
@@ -79,7 +85,7 @@ class CourseCard extends ConsumerWidget {
             Text(
               displayName,
               style: TextStyle(
-                fontSize: spanPeriods > 1 ? 11 : 10,
+                fontSize: nameFontSize,
                 fontWeight: FontWeight.w500,
                 color: _color,
               ),
@@ -90,7 +96,7 @@ class CourseCard extends ConsumerWidget {
               const SizedBox(height: 2),
               Text(
                 course.location!,
-                style: TextStyle(fontSize: 9, color: _color.withValues(alpha: 0.8)),
+                style: TextStyle(fontSize: detailFontSize, color: _color.withValues(alpha: 0.8)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -99,7 +105,7 @@ class CourseCard extends ConsumerWidget {
               const SizedBox(height: 1),
               Text(
                 course.teacher!,
-                style: TextStyle(fontSize: 9, color: _color.withValues(alpha: 0.7)),
+                style: TextStyle(fontSize: detailFontSize, color: _color.withValues(alpha: 0.7)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

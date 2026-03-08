@@ -12,6 +12,9 @@ import '../../../providers/semester_providers.dart';
 import 'course_card.dart';
 
 const _weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const _headerHeight = 24.0;
+const _minCellHeight = 36.0;
+const _maxCellHeight = 72.0;
 
 class WeekGridView extends ConsumerStatefulWidget {
   final int weekNumber;
@@ -72,8 +75,32 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
           );
         }
 
-        return SingleChildScrollView(
-          child: _buildGrid(context, filtered, config, isCurrentWeek),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final totalPeriods = config.totalPeriods;
+            final availableHeight = constraints.maxHeight;
+
+            // Calculate adaptive cell height.
+            var cellHeight =
+                (availableHeight - _headerHeight) / totalPeriods;
+            cellHeight = cellHeight.clamp(_minCellHeight, _maxCellHeight);
+
+            final gridHeight = _headerHeight + cellHeight * totalPeriods;
+            final needsScroll = gridHeight > availableHeight;
+
+            Widget grid =
+                _buildGrid(context, filtered, config, isCurrentWeek, cellHeight);
+
+            if (needsScroll) {
+              grid = SingleChildScrollView(child: grid);
+            }
+
+            return InteractiveViewer(
+              minScale: 1.0,
+              maxScale: 2.5,
+              child: grid,
+            );
+          },
         );
       },
     );
@@ -93,13 +120,12 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
   }
 
   Widget _buildGrid(BuildContext context, List<Course> courses,
-      PeriodConfig config, bool isCurrentWeek) {
+      PeriodConfig config, bool isCurrentWeek, double cellHeight) {
     final totalPeriods = config.totalPeriods;
     final hasTime = config.hasTimeInfo;
     final labelWidth = hasTime ? 56.0 : 40.0;
     final cellWidth =
         (MediaQuery.of(context).size.width - labelWidth) / 7;
-    const cellHeight = 60.0;
 
     // Only show time indicator on the current week
     final timeIndicatorY = (hasTime && isCurrentWeek)
@@ -121,30 +147,33 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
       children: [
         Column(
           children: [
-            Row(
-              children: [
-                SizedBox(width: labelWidth, child: Container()),
-                for (int i = 0; i < _weekdays.length; i++)
-                  SizedBox(
-                    width: cellWidth,
-                    child: Center(
-                      child: Text(
-                        _weekdays[i],
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(
-                              fontWeight: (i + 1) == todayWeekday
-                                  ? FontWeight.bold
-                                  : null,
-                              color: (i + 1) == todayWeekday
-                                  ? Theme.of(context).colorScheme.primary
-                                  : null,
-                            ),
+            SizedBox(
+              height: _headerHeight,
+              child: Row(
+                children: [
+                  SizedBox(width: labelWidth, child: Container()),
+                  for (int i = 0; i < _weekdays.length; i++)
+                    SizedBox(
+                      width: cellWidth,
+                      child: Center(
+                        child: Text(
+                          _weekdays[i],
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                fontWeight: (i + 1) == todayWeekday
+                                    ? FontWeight.bold
+                                    : null,
+                                color: (i + 1) == todayWeekday
+                                    ? Theme.of(context).colorScheme.primary
+                                    : null,
+                              ),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             for (int period = 1; period <= totalPeriods; period++)
               Row(
@@ -152,7 +181,7 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
                   SizedBox(
                     width: labelWidth,
                     height: cellHeight,
-                    child: _periodLabel(context, period, config),
+                    child: _periodLabel(context, period, config, cellHeight),
                   ),
                   for (int day = 1; day <= 7; day++)
                     SizedBox(
@@ -170,7 +199,7 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
         ),
         if (timeIndicatorY != null && todayWeekday >= 1)
           Positioned(
-            top: timeIndicatorY + 21,
+            top: timeIndicatorY + _headerHeight,
             // Position only on today's column
             left: labelWidth + (todayWeekday - 1) * cellWidth,
             width: cellWidth,
@@ -198,8 +227,9 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
   }
 
   Widget _periodLabel(
-      BuildContext context, int period, PeriodConfig config) {
+      BuildContext context, int period, PeriodConfig config, double cellHeight) {
     final pt = config.getTime(period);
+    final timeFontSize = (cellHeight / 60.0 * 8).clamp(6.0, 9.0);
     if (pt == null) {
       return Center(
         child:
@@ -214,12 +244,12 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
             style: Theme.of(context)
                 .textTheme
                 .labelSmall
-                ?.copyWith(fontSize: 8, color: Colors.grey)),
+                ?.copyWith(fontSize: timeFontSize, color: Colors.grey)),
         Text(pt.endTimeStr,
             style: Theme.of(context)
                 .textTheme
                 .labelSmall
-                ?.copyWith(fontSize: 8, color: Colors.grey)),
+                ?.copyWith(fontSize: timeFontSize, color: Colors.grey)),
       ],
     );
   }
@@ -282,7 +312,11 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
         child: SizedBox(
           height: totalHeight,
           width: cellWidth,
-          child: CourseCard(course: course, spanPeriods: spanPeriods),
+          child: CourseCard(
+            course: course,
+            spanPeriods: spanPeriods,
+            cellHeight: cellHeight,
+          ),
         ),
       );
     }
