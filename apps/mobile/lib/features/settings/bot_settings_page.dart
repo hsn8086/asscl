@@ -100,12 +100,33 @@ class _BotSettingsPageState extends ConsumerState<BotSettingsPage> {
     final service = TelegramBotService(token: token, client: client);
     final status = await service.testConnection();
 
+    if (!status.ok) {
+      if (mounted) {
+        setState(() {
+          _testing = false;
+          _testResult = '连接失败: ${status.error}';
+        });
+      }
+      return;
+    }
+
+    // Connection OK — try sending a test message if chatId is configured.
+    final chatId = _chatIdController.text.trim();
+    String resultText = '连接成功！Bot: @${status.botUsername}';
+
+    if (chatId.isNotEmpty) {
+      try {
+        await service.sendMessage(chatId, '✅ Bot 连接测试成功！');
+        resultText += '\n已向 Chat $chatId 发送测试消息';
+      } catch (e) {
+        resultText += '\n⚠️ 发送测试消息失败: $e';
+      }
+    }
+
     if (mounted) {
       setState(() {
         _testing = false;
-        _testResult = status.ok
-            ? '连接成功！Bot: @${status.botUsername}'
-            : '连接失败: ${status.error}';
+        _testResult = resultText;
       });
     }
   }

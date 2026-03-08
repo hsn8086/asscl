@@ -58,6 +58,14 @@ class TelegramBotService implements BotPlatformService {
     }
   }
 
+  /// Send a chat action (e.g. 'typing') to indicate the bot is processing.
+  Future<void> sendChatAction(String chatId, {String action = 'typing'}) async {
+    await _post('sendChatAction', {
+      'chat_id': chatId,
+      'action': action,
+    });
+  }
+
   @override
   Future<void> sendMessageStreaming(
     String chatId,

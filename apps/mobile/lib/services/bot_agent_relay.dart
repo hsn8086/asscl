@@ -62,37 +62,56 @@ class BotAgentRelay {
     if (msg.chatId != config.chatId) return;
 
     try {
-      // Stream AI response back to Telegram.
-      final buffer = StringBuffer();
+      // Show typing indicator while AI is processing.
+      await bot.sendChatAction(config.chatId);
+
+      // Stream AI response back to Telegram in real-time.
       final stream = agent.sendStreaming(text: msg.text);
-
-      List<ChatToolCall>? pendingToolCalls;
-
-      await for (final delta in stream) {
-        if (delta.textDelta != null) {
-          buffer.write(delta.textDelta);
-        }
-        if (delta.toolCallDeltas != null) {
-          pendingToolCalls ??= [];
-          _mergeToolCallDeltas(pendingToolCalls, delta.toolCallDeltas!);
-        }
-      }
-
-      // Send the text response.
-      final text = buffer.toString().trim();
-      if (text.isNotEmpty) {
-        await bot.sendMessage(config.chatId, text);
-      }
+      final result = await _streamResponse(stream, config.chatId, bot);
 
       // Handle tool calls.
-      if (pendingToolCalls != null && pendingToolCalls.isNotEmpty) {
-        await _handleToolCalls(pendingToolCalls, config.chatId, bot, agent);
+      if (result.toolCalls != null && result.toolCalls!.isNotEmpty) {
+        await _handleToolCalls(result.toolCalls!, config.chatId, bot, agent);
       }
     } catch (e) {
       try {
         await bot.sendMessage(config.chatId, '⚠️ AI 处理出错: $e');
       } catch (_) {}
     }
+  }
+
+  /// Streams AI deltas to Telegram via [sendMessageStreaming].
+  /// Returns any tool calls found in the stream.
+  Future<_StreamResult> _streamResponse(
+    Stream<ChatStreamDelta> stream,
+    String chatId,
+    TelegramBotService bot,
+  ) async {
+    List<ChatToolCall>? pendingToolCalls;
+    final textController = StreamController<String>();
+    final sendFuture = bot.sendMessageStreaming(chatId, textController.stream);
+    bool hasText = false;
+
+    try {
+      await for (final delta in stream) {
+        if (delta.textDelta != null) {
+          hasText = true;
+          textController.add(delta.textDelta!);
+        }
+        if (delta.toolCallDeltas != null) {
+          pendingToolCalls ??= [];
+          _mergeToolCallDeltas(pendingToolCalls, delta.toolCallDeltas!);
+        }
+      }
+    } finally {
+      await textController.close();
+    }
+
+    if (hasText) {
+      await sendFuture;
+    }
+
+    return _StreamResult(toolCalls: pendingToolCalls);
   }
 
   Future<void> _handleToolCalls(
@@ -103,6 +122,8 @@ class BotAgentRelay {
   ) async {
     for (final tc in toolCalls) {
       if (_autoExecTools.contains(tc.name)) {
+        // Show typing while executing tool.
+        await bot.sendChatAction(chatId);
         final result = await _executeTool(tc);
         agent.addToolResult(tc.id, result);
       } else {
@@ -116,16 +137,11 @@ class BotAgentRelay {
       }
     }
 
-    // Continue the conversation after auto-executed tools.
+    // Continue the conversation after auto-executed tools — stream the reply.
     if (toolCalls.any((tc) => _autoExecTools.contains(tc.name))) {
-      final buffer = StringBuffer();
-      await for (final delta in agent.sendStreaming()) {
-        if (delta.textDelta != null) buffer.write(delta.textDelta);
-      }
-      final reply = buffer.toString().trim();
-      if (reply.isNotEmpty) {
-        await bot.sendMessage(chatId, reply);
-      }
+      await bot.sendChatAction(chatId);
+      final followUp = agent.sendStreaming();
+      await _streamResponse(followUp, chatId, bot);
     }
   }
 
@@ -227,4 +243,9 @@ class BotAgentRelay {
     };
     return names[name] ?? name;
   }
+}
+
+class _StreamResult {
+  final List<ChatToolCall>? toolCalls;
+  const _StreamResult({this.toolCalls});
 }
