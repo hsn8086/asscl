@@ -90,7 +90,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             IconButton(
               icon: const Icon(Icons.chevron_left),
               onPressed: weekNumber > 1
-                  ? () => ref.read(selectedWeekProvider.notifier).state--
+                  ? () => ref.read(selectedWeekProvider.notifier).decrement()
                   : null,
             ),
             GestureDetector(
@@ -112,13 +112,13 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
             IconButton(
               icon: const Icon(Icons.chevron_right),
               onPressed: weekNumber < maxWeek
-                  ? () => ref.read(selectedWeekProvider.notifier).state++
+                  ? () => ref.read(selectedWeekProvider.notifier).increment()
                   : null,
             ),
             if (weekNumber != realWeek)
               GestureDetector(
                 onTap: () =>
-                    ref.read(selectedWeekProvider.notifier).state = realWeek,
+                    ref.read(selectedWeekProvider.notifier).set(realWeek),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -179,7 +179,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
               controller: _pageController,
               itemCount: maxWeek,
               onPageChanged: (index) {
-                ref.read(selectedWeekProvider.notifier).state = index + 1;
+                ref.read(selectedWeekProvider.notifier).set(index + 1);
               },
               itemBuilder: (context, index) {
                 final week = index + 1;

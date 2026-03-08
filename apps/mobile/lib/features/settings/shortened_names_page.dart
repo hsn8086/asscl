@@ -50,7 +50,7 @@ class ShortenedNamesPage extends ConsumerWidget {
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: entries.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (_, i) {
                     final entry = entries[i];
                     return ListTile(
@@ -95,7 +95,7 @@ class ShortenedNamesPage extends ConsumerWidget {
         ref.watch(aiConfigProvider).valueOrNull != null;
 
     final String message;
-    final String? hint;
+    final String hint;
     if (!hasAiConfig) {
       message = '需要先配置 AI 服务';
       hint = '前往 设置 → AI 配置 填写 API 信息后，回到这里点击「重新生成」';
@@ -117,16 +117,14 @@ class ShortenedNamesPage extends ConsumerWidget {
                 color: theme.colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
             Text(message, style: theme.textTheme.titleMedium),
-            if (hint != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                hint,
-                style: theme.textTheme.bodySmall?.copyWith(
+            const SizedBox(height: 8),
+            Text(
+              hint,
+              style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ],
         ),
       ),

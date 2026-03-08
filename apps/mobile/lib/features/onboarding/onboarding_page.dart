@@ -173,7 +173,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         if (mounted) {
           await dao.setValue('onboardingCompleted', 'true');
           ref.invalidate(onboardingCompletedProvider);
-          context.go('/schedule');
+          if (mounted) context.go('/schedule');
         }
         return;
       }

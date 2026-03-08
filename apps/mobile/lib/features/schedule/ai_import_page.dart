@@ -39,7 +39,7 @@ enum _ToolCallStatus { pending, confirmed, rejected }
 class _PendingToolCall {
   final String id; // tool call ID
   final String name; // tool name
-  _ToolCallStatus status;
+  _ToolCallStatus status = _ToolCallStatus.pending;
 
   // import_courses
   List<AiParsedCourse>? parsedCourses;
@@ -65,7 +65,6 @@ class _PendingToolCall {
   _PendingToolCall({
     required this.id,
     required this.name,
-    this.status = _ToolCallStatus.pending,
   });
 }
 
@@ -2027,7 +2026,7 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                               width: 150,
                               height: 150,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
+                              errorBuilder: (_, _, _) => Container(
                                     width: 150,
                                     height: 150,
                                     color: theme

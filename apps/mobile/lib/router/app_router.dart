@@ -59,57 +59,57 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const OnboardingPage(),
+        builder: (_, _) => const OnboardingPage(),
       ),
       GoRoute(
         path: '/settings',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const SettingsPage(),
+        builder: (_, _) => const SettingsPage(),
         routes: [
           GoRoute(
             path: 'period-config',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const PeriodConfigPage(),
+            builder: (_, _) => const PeriodConfigPage(),
           ),
           GoRoute(
             path: 'semesters',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const SemesterManagePage(),
+            builder: (_, _) => const SemesterManagePage(),
           ),
           GoRoute(
             path: 'shortened-names',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const ShortenedNamesPage(),
+            builder: (_, _) => const ShortenedNamesPage(),
           ),
           GoRoute(
             path: 'bot',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const BotSettingsPage(),
+            builder: (_, _) => const BotSettingsPage(),
           ),
           GoRoute(
             path: 'ai-config',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const AiConfigPage(),
+            builder: (_, _) => const AiConfigPage(),
           ),
           GoRoute(
             path: 'proxy',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const ProxySettingsPage(),
+            builder: (_, _) => const ProxySettingsPage(),
           ),
           GoRoute(
             path: 'weather',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const WeatherSettingsPage(),
+            builder: (_, _) => const WeatherSettingsPage(),
           ),
           GoRoute(
             path: 'webdav',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const WebDavSettingsPage(),
+            builder: (_, _) => const WebDavSettingsPage(),
           ),
           GoRoute(
             path: 'developer',
             parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, __) => const DeveloperPage(),
+            builder: (_, _) => const DeveloperPage(),
           ),
         ],
       ),
@@ -119,12 +119,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/schedule',
-              builder: (_, __) => const SchedulePage(),
+              builder: (_, _) => const SchedulePage(),
               routes: [
                 GoRoute(
                   path: 'course/new',
                   parentNavigatorKey: _rootNavigatorKey,
-                  builder: (_, __) => const CourseFormPage(),
+                  builder: (_, _) => const CourseFormPage(),
                 ),
                 GoRoute(
                   path: 'course/:id',
@@ -148,18 +148,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/agent',
-              builder: (_, __) => const AiImportPage(),
+              builder: (_, _) => const AiImportPage(),
             ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/tasks',
-              builder: (_, __) => const TasksPage(),
+              builder: (_, _) => const TasksPage(),
               routes: [
                 GoRoute(
                   path: 'new',
                   parentNavigatorKey: _rootNavigatorKey,
-                  builder: (_, __) => const TaskFormPage(),
+                  builder: (_, _) => const TaskFormPage(),
                 ),
                 GoRoute(
                   path: ':id',
@@ -183,12 +183,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/reminders',
-              builder: (_, __) => const RemindersPage(),
+              builder: (_, _) => const RemindersPage(),
               routes: [
                 GoRoute(
                   path: 'new',
                   parentNavigatorKey: _rootNavigatorKey,
-                  builder: (_, __) => const ReminderFormPage(),
+                  builder: (_, _) => const ReminderFormPage(),
                 ),
                 GoRoute(
                   path: ':id',

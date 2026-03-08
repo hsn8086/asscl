@@ -41,7 +41,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         // Update selected week if it was tracking the current week.
         final selected = ref.read(selectedWeekProvider);
         if (selected == oldWeek) {
-          ref.read(selectedWeekProvider.notifier).state = newWeek;
+          ref.read(selectedWeekProvider.notifier).set(newWeek);
         }
       }
       _updateWidgets();

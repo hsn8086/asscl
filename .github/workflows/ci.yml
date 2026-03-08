@@ -53,7 +53,7 @@ jobs:
       - name: Test domain
         run: cd packages/domain && dart test
       - name: Test data
-        run: cd packages/data && dart test
+        run: cd packages/data && flutter test
       - name: Test presentation
         run: cd packages/presentation && flutter test
       - name: Test mobile

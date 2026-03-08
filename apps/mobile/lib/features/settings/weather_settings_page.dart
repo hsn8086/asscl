@@ -75,8 +75,7 @@ class _WeatherSettingsPageState extends ConsumerState<WeatherSettingsPage> {
     setState(() => _weatherEnabled = value);
   }
 
-  Future<void> _setSource(String? value) async {
-    if (value == null) return;
+  Future<void> _setSource(String value) async {
     final db = ref.read(appDatabaseProvider);
     final dao = SettingsDao(db);
     await dao.setValue('weatherSource', value);
@@ -127,35 +126,33 @@ class _WeatherSettingsPageState extends ConsumerState<WeatherSettingsPage> {
             const SizedBox(height: 16),
             Card(
               clipBehavior: Clip.antiAlias,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const ListTile(
-                    leading: Icon(Icons.dns),
-                    title: Text('数据源'),
-                  ),
-                  RadioListTile<String>(
-                    title: const Text('wttr.in'),
-                    subtitle: const Text('默认，中文天气描述'),
-                    value: 'wttr',
-                    groupValue: _weatherSource,
-                    onChanged: _setSource,
-                  ),
-                  RadioListTile<String>(
-                    title: const Text('Open-Meteo'),
-                    subtitle: const Text('高精度，更新频繁'),
-                    value: 'openmeteo',
-                    groupValue: _weatherSource,
-                    onChanged: _setSource,
-                  ),
-                  RadioListTile<String>(
-                    title: const Text('7Timer'),
-                    subtitle: const Text('NOAA GFS 模型'),
-                    value: '7timer',
-                    groupValue: _weatherSource,
-                    onChanged: _setSource,
-                  ),
-                ],
+              child: RadioGroup<String>(
+                groupValue: _weatherSource,
+                onChanged: (v) { if (v != null) _setSource(v); },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const ListTile(
+                      leading: Icon(Icons.dns),
+                      title: Text('数据源'),
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('wttr.in'),
+                      subtitle: const Text('默认，中文天气描述'),
+                      value: 'wttr',
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Open-Meteo'),
+                      subtitle: const Text('高精度，更新频繁'),
+                      value: 'openmeteo',
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('7Timer'),
+                      subtitle: const Text('NOAA GFS 模型'),
+                      value: '7timer',
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
