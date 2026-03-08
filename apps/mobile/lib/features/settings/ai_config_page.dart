@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:data/data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../../providers/ai_providers.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/proxy_providers.dart';
 import '../../providers/voice_providers.dart';
 
 class AiConfigPage extends ConsumerStatefulWidget {
@@ -27,6 +31,7 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
   String _voiceMode = 'whisper'; // 'whisper' or 'multimodal'
 
   bool _isLoaded = false;
+  bool _testing = false;
 
   @override
   void dispose() {
@@ -161,6 +166,59 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('AI 配置已保存')),
+      );
+    }
+  }
+
+  Future<void> _testConnection() async {
+    final baseUrl = _baseUrlController.text.trim();
+    final apiKey = _apiKeyController.text.trim();
+    final model = _modelController.text.trim();
+
+    if (baseUrl.isEmpty || apiKey.isEmpty) {
+      _showSnackBar('请先填写 Base URL 和 API Key');
+      return;
+    }
+
+    setState(() => _testing = true);
+    try {
+      final client = ref.read(httpClientProvider);
+      final url = '$baseUrl/chat/completions';
+      final response = await client.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': model.isNotEmpty ? model : 'gpt-4o-mini',
+          'messages': [
+            {'role': 'user', 'content': 'Hi'}
+          ],
+          'max_tokens': 1,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        _showSnackBar('连接成功');
+      } else {
+        final body = response.body;
+        final msg = body.length > 100 ? body.substring(0, 100) : body;
+        _showSnackBar('请求失败 (${response.statusCode}): $msg');
+      }
+    } on http.ClientException catch (e) {
+      _showSnackBar('连接失败: $e');
+    } catch (e) {
+      _showSnackBar('测试出错: $e');
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
       );
     }
   }
@@ -310,10 +368,30 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
           ],
 
           const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.save),
-            label: const Text('保存'),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _save,
+                  icon: const Icon(Icons.save),
+                  label: const Text('保存'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _testing ? null : _testConnection,
+                  icon: _testing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.wifi_tethering),
+                  label: const Text('测试连接'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
