@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 
 import 'app.dart';
@@ -18,6 +19,7 @@ Future<void> _homeWidgetBackgroundCallback(Uri? uri) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
+  await initializeDateFormatting('zh_CN');
 
   HomeWidget.registerInteractivityCallback(_homeWidgetBackgroundCallback);
 

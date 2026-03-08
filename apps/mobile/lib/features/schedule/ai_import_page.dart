@@ -1090,22 +1090,26 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
     required ChatToolCall tc,
     required AiAgentService agent,
   }) {
-    final now = DateTime.now();
-    final timeFmt = DateFormat('yyyy-MM-dd HH:mm:ss (EEEE)', 'zh_CN');
-    final buf = StringBuffer('当前时间：${timeFmt.format(now)}');
+    try {
+      final now = DateTime.now();
+      final timeFmt = DateFormat('yyyy-MM-dd HH:mm:ss (EEEE)', 'zh_CN');
+      final buf = StringBuffer('当前时间：${timeFmt.format(now)}');
 
-    // 当前周次
-    final week = ref.read(currentWeekProvider);
-    buf.write('\n当前学期：第$week周');
+      // 当前周次
+      final week = ref.read(currentWeekProvider);
+      buf.write('\n当前学期：第$week周');
 
-    // 当前节次
-    final configAsync = ref.read(periodConfigProvider);
-    final config = configAsync.valueOrNull;
-    if (config != null && config.periods.isNotEmpty) {
-      buf.write('\n当前节次：${_currentPeriodString(now, config)}');
+      // 当前节次
+      final configAsync = ref.read(periodConfigProvider);
+      final config = configAsync.valueOrNull;
+      if (config != null && config.periods.isNotEmpty) {
+        buf.write('\n当前节次：${_currentPeriodString(now, config)}');
+      }
+
+      agent.addToolResult(tc.id, buf.toString());
+    } catch (e) {
+      agent.addToolResult(tc.id, '获取时间失败: $e');
     }
-
-    agent.addToolResult(tc.id, buf.toString());
     ptc.status = _ToolCallStatus.confirmed;
   }
 
