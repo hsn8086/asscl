@@ -47,6 +47,7 @@ final voiceConfigProvider = FutureProvider<VoiceConfig?>((ref) async {
   final isMultimodal = mode == 'multimodal';
 
   final sameAsAgent = await dao.getValue('voiceSameAsAgent');
+  final useSameAsAgent = sameAsAgent != 'false'; // default true
 
   if (isMultimodal) {
     // Multimodal mode: use chat completions endpoint with the main model.
@@ -60,17 +61,19 @@ final voiceConfigProvider = FutureProvider<VoiceConfig?>((ref) async {
     );
   }
 
-  // Whisper mode: needs a model name.
+  // Whisper mode: default model to 'whisper-1' if not set.
   final modelName = await dao.getValue('voiceModelName');
-  if (modelName == null || modelName.isEmpty) return null;
+  final model = (modelName != null && modelName.isNotEmpty)
+      ? modelName
+      : 'whisper-1';
 
-  if (sameAsAgent == 'true') {
+  if (useSameAsAgent) {
     final aiConfig = ref.watch(aiConfigProvider).valueOrNull;
     if (aiConfig == null) return null;
     return VoiceConfig(
       endpoint: '${aiConfig.baseUrl}/audio/transcriptions',
       apiKey: aiConfig.apiKey,
-      model: modelName,
+      model: model,
     );
   } else {
     final endpoint = await dao.getValue('voiceApiEndpoint');
@@ -82,7 +85,7 @@ final voiceConfigProvider = FutureProvider<VoiceConfig?>((ref) async {
     return VoiceConfig(
       endpoint: endpoint,
       apiKey: apiKey,
-      model: modelName,
+      model: model,
     );
   }
 });
