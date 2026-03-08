@@ -3,6 +3,7 @@ package com.hsn8086.asscl
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
@@ -66,12 +67,14 @@ class TodayScheduleWidgetProvider : AppWidgetProvider() {
 
             // Highlight today's weekday header
             val todayDow = todayDayOfWeek() // 1=Mon..7=Sun
+            val isDark = isDarkMode(context)
+            val normalHeaderColor = if (isDark) 0x99FFFFFF.toInt() else 0x99000000.toInt()
             for (i in 0..6) {
                 if (i + 1 == todayDow) {
                     views.setTextColor(HEADER_IDS[i], 0xFF1976D2.toInt())
                     views.setInt(HEADER_IDS[i], "setBackgroundColor", 0x1A1976D2)
                 } else {
-                    views.setTextColor(HEADER_IDS[i], 0x99000000.toInt())
+                    views.setTextColor(HEADER_IDS[i], normalHeaderColor)
                     views.setInt(HEADER_IDS[i], "setBackgroundColor", 0x00000000)
                 }
             }
@@ -198,5 +201,10 @@ class TodayScheduleWidgetProvider : AppWidgetProvider() {
         val cal = Calendar.getInstance()
         val dow = cal.get(Calendar.DAY_OF_WEEK) // Sun=1 .. Sat=7
         return if (dow == Calendar.SUNDAY) 7 else dow - 1
+    }
+
+    private fun isDarkMode(context: Context): Boolean {
+        val nightMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        return nightMode == Configuration.UI_MODE_NIGHT_YES
     }
 }
