@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/ai_providers.dart';
 import '../../providers/shortened_names_provider.dart';
 
 class ShortenedNamesPage extends ConsumerWidget {
@@ -11,9 +12,9 @@ class ShortenedNamesPage extends ConsumerWidget {
     final shortenedAsync = ref.watch(shortenedCourseNamesProvider);
     final shortened = shortenedAsync.valueOrNull ?? {};
     final isLoading = shortenedAsync.isLoading;
+    final hasError = shortenedAsync.hasError;
     final theme = Theme.of(context);
 
-    // Sort entries by key (normalized name) for stable display
     final entries = shortened.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
 
@@ -21,48 +22,45 @@ class ShortenedNamesPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('简称管理'),
         actions: [
-          if (!isLoading && shortened.isNotEmpty) ...[
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: '重新生成',
-              onPressed: () =>
-                  ref.read(shortenedCourseNamesProvider.notifier).regenerate(),
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '重新生成',
+            onPressed: isLoading
+                ? null
+                : () => ref
+                    .read(shortenedCourseNamesProvider.notifier)
+                    .regenerate(),
+          ),
+          if (shortened.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep),
               tooltip: '清除全部',
-              onPressed: () =>
-                  ref.read(shortenedCourseNamesProvider.notifier).clearAll(),
+              onPressed: isLoading
+                  ? null
+                  : () => ref
+                      .read(shortenedCourseNamesProvider.notifier)
+                      .clearAll(),
             ),
-          ],
         ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : entries.isEmpty
-              ? Center(
-                  child: Text(
-                    '暂无简称缓存，将在课程加载后自动生成',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                )
+              ? _buildEmptyState(context, ref, hasError, theme)
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: entries.length,
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
                     final entry = entries[i];
-                    final nameKey = entry.key;
-                    final shortName = entry.value;
                     return ListTile(
-                      title:
-                          Text(nameKey, style: const TextStyle(fontSize: 14)),
+                      title: Text(entry.key,
+                          style: const TextStyle(fontSize: 14)),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            shortName,
+                            entry.value,
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -73,14 +71,14 @@ class ShortenedNamesPage extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.edit, size: 18),
                             onPressed: () => _editShortName(
-                                context, ref, nameKey, shortName),
+                                context, ref, entry.key, entry.value),
                             visualDensity: VisualDensity.compact,
                           ),
                           IconButton(
                             icon: const Icon(Icons.close, size: 18),
                             onPressed: () => ref
                                 .read(shortenedCourseNamesProvider.notifier)
-                                .removeName(nameKey),
+                                .removeName(entry.key),
                             visualDensity: VisualDensity.compact,
                           ),
                         ],
@@ -88,6 +86,50 @@ class ShortenedNamesPage extends ConsumerWidget {
                     );
                   },
                 ),
+    );
+  }
+
+  Widget _buildEmptyState(
+      BuildContext context, WidgetRef ref, bool hasError, ThemeData theme) {
+    final hasAiConfig =
+        ref.watch(aiConfigProvider).valueOrNull != null;
+
+    final String message;
+    final String? hint;
+    if (!hasAiConfig) {
+      message = '需要先配置 AI 服务';
+      hint = '前往 设置 → AI 配置 填写 API 信息后，回到这里点击「重新生成」';
+    } else if (hasError) {
+      message = '生成失败';
+      hint = '请检查 AI 配置和网络连接，然后点击右上角刷新重试';
+    } else {
+      message = '暂无简称';
+      hint = '点击右上角刷新按钮，通过 AI 为课程名生成 2-4 字简称';
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.short_text, size: 48,
+                color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text(message, style: theme.textTheme.titleMedium),
+            if (hint != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                hint,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
