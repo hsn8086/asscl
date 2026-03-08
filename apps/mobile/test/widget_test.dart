@@ -15,7 +15,9 @@ void main() {
         child: const App(),
       ),
     );
-    await tester.pump(const Duration(seconds: 1));
+    // First pump: FutureProvider resolves. Second pump: router redirects.
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('欢迎使用课程表'), findsOneWidget);
   });

@@ -28,14 +28,15 @@ import 'main_scaffold.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final onboardingState = ValueNotifier<bool>(
-    ref.read(onboardingCompletedProvider).valueOrNull ?? false,
+  // Use nullable bool: null = still loading, false = needs onboarding,
+  // true = onboarding completed. This prevents the onboarding page from
+  // flashing briefly on startup while the async value resolves.
+  final onboardingState = ValueNotifier<bool?>(
+    ref.read(onboardingCompletedProvider).valueOrNull,
   );
 
-  // Update the notifier (and trigger GoRouter redirect re-evaluation)
-  // when the async onboarding provider resolves or changes.
   ref.listen(onboardingCompletedProvider, (_, next) {
-    onboardingState.value = next.valueOrNull ?? false;
+    onboardingState.value = next.valueOrNull;
   });
 
   return GoRouter(
@@ -45,6 +46,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final onboarded = onboardingState.value;
       final goingToOnboarding = state.matchedLocation == '/onboarding';
+
+      // Still loading — stay on current route (schedule shows loading).
+      if (onboarded == null) return null;
 
       if (!onboarded && !goingToOnboarding) return '/onboarding';
       if (onboarded && goingToOnboarding) return '/schedule';
