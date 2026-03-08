@@ -101,8 +101,7 @@ class BotAgentRelay {
           textController.add(delta.textDelta!);
         }
         if (delta.toolCallDeltas != null) {
-          pendingToolCalls ??= [];
-          _mergeToolCallDeltas(pendingToolCalls, delta.toolCallDeltas!);
+          pendingToolCalls = delta.toolCallDeltas;
         }
       }
     } finally {
@@ -213,25 +212,6 @@ class BotAgentRelay {
       return '${s.name}$active | 共${s.totalWeeks}周';
     });
     return '学期列表:\n${lines.join("\n")}';
-  }
-
-  void _mergeToolCallDeltas(
-    List<ChatToolCall> acc,
-    List<ChatToolCall> deltas,
-  ) {
-    for (final d in deltas) {
-      final idx = int.tryParse(d.id);
-      if (idx != null && idx < acc.length) {
-        // Append to existing.
-        acc[idx] = ChatToolCall(
-          id: acc[idx].id.isEmpty ? d.id : acc[idx].id,
-          name: acc[idx].name + d.name,
-          arguments: acc[idx].arguments + d.arguments,
-        );
-      } else {
-        acc.add(d);
-      }
-    }
   }
 
   String _toolDisplayName(String name) {
