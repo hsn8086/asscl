@@ -1970,6 +1970,37 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                   ],
                 ),
               ),
+            // Copy button for assistant messages.
+            if (!isUser &&
+                msg.text != null &&
+                msg.text!.isNotEmpty &&
+                !msg.isStreaming)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: SizedBox(
+                  height: 28,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.copy,
+                      size: 14,
+                      color: theme.colorScheme.onSurfaceVariant
+                          .withValues(alpha: 0.6),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    constraints: const BoxConstraints(),
+                    tooltip: '复制',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: msg.text!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('已复制'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
             // Show streaming indicator for empty text
             if ((msg.text == null || msg.text!.isEmpty) && msg.isStreaming)
               Container(
