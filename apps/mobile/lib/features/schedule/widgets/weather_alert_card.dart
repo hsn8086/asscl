@@ -10,6 +10,10 @@ import '../../../providers/weather_providers.dart';
 class WeatherAlertCard extends ConsumerStatefulWidget {
   const WeatherAlertCard({super.key});
 
+  /// Preview card for developer page — renders with mock data, no providers.
+  static Widget preview({required WeatherInfo weather}) =>
+      _WeatherAlertPreview(weather: weather);
+
   @override
   ConsumerState<WeatherAlertCard> createState() => _WeatherAlertCardState();
 }
@@ -147,5 +151,91 @@ class _WeatherAlertCardState extends ConsumerState<WeatherAlertCard> {
       icon = Icons.thermostat;
     }
     return Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary);
+  }
+}
+
+/// Standalone preview widget — renders weather alert card with given data,
+/// triggers all alert types regardless of user config.
+class _WeatherAlertPreview extends StatelessWidget {
+  final WeatherInfo weather;
+  const _WeatherAlertPreview({required this.weather});
+
+  @override
+  Widget build(BuildContext context) {
+    final alerts = _allAlerts(weather);
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              _icon(weather.condition, theme),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${weather.tempC.round()}°C · ${weather.condition}',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      alerts.join('；'),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static List<String> _allAlerts(WeatherInfo weather) {
+    final alerts = <String>[];
+    final cond = weather.condition.toLowerCase();
+    if (cond.contains('雨') || cond.contains('rain') ||
+        cond.contains('drizzle') || cond.contains('shower')) {
+      alerts.add('今日有雨，记得带伞');
+    }
+    if (cond.contains('雪') || cond.contains('snow') ||
+        cond.contains('sleet') || cond.contains('blizzard')) {
+      alerts.add('今日有雪，注意保暖');
+    }
+    if (weather.tempC >= 35) {
+      alerts.add('今日高温 ${weather.tempC.round()}°C，注意防暑');
+    }
+    if (weather.tempC <= 0) {
+      alerts.add('今日低温 ${weather.tempC.round()}°C，注意保暖');
+    }
+    if (alerts.isEmpty) {
+      alerts.add('${weather.tempC.round()}°C ${weather.condition}');
+    }
+    return alerts;
+  }
+
+  static Widget _icon(String condition, ThemeData theme) {
+    final cond = condition.toLowerCase();
+    IconData icon;
+    if (cond.contains('雨') || cond.contains('rain')) {
+      icon = Icons.umbrella;
+    } else if (cond.contains('雪') || cond.contains('snow')) {
+      icon = Icons.ac_unit;
+    } else if (cond.contains('阴') || cond.contains('多云') || cond.contains('cloud')) {
+      icon = Icons.cloud;
+    } else if (cond.contains('晴') || cond.contains('sun') || cond.contains('clear')) {
+      icon = Icons.wb_sunny;
+    } else {
+      icon = Icons.thermostat;
+    }
+    return Icon(icon, size: 32, color: theme.colorScheme.primary);
   }
 }
