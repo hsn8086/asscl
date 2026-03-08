@@ -68,6 +68,21 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
     }
   }
 
+  Future<void> _toggleVoiceEnabled(bool value) async {
+    setState(() => _voiceEnabled = value);
+    final db = ref.read(appDatabaseProvider);
+    await SettingsDao(db).setValue('voiceEnabled', value.toString());
+    ref.invalidate(voiceEnabledProvider);
+    ref.invalidate(voiceConfigProvider);
+  }
+
+  Future<void> _toggleVoiceSameAsAgent(bool value) async {
+    setState(() => _voiceSameAsAgent = value);
+    final db = ref.read(appDatabaseProvider);
+    await SettingsDao(db).setValue('voiceSameAsAgent', value.toString());
+    ref.invalidate(voiceConfigProvider);
+  }
+
   Future<void> _save() async {
     final db = ref.read(appDatabaseProvider);
     final dao = SettingsDao(db);
@@ -193,7 +208,7 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
             title: const Text('启用语音输入'),
             subtitle: const Text('在对话输入栏显示麦克风按钮'),
             value: _voiceEnabled,
-            onChanged: (v) => setState(() => _voiceEnabled = v),
+            onChanged: _toggleVoiceEnabled,
           ),
           if (_voiceEnabled) ...[
             SwitchListTile(
@@ -201,7 +216,7 @@ class _AiConfigPageState extends ConsumerState<AiConfigPage> {
               title: const Text('和 Agent 模型一致'),
               subtitle: const Text('复用上方 API Endpoint 和 Key'),
               value: _voiceSameAsAgent,
-              onChanged: (v) => setState(() => _voiceSameAsAgent = v),
+              onChanged: _toggleVoiceSameAsAgent,
             ),
             if (!_voiceSameAsAgent) ...[
               const SizedBox(height: 12),
