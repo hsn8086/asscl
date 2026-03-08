@@ -9,6 +9,7 @@ import 'ai_import_service_impl.dart' show AiImportConfig;
 class AiAgentServiceImpl implements AiAgentService {
   final AiImportConfig config;
   final http.Client _client;
+  final http.Client Function() _clientFactory;
   final List<Map<String, dynamic>> _history = [];
   bool _isBusy = false;
   bool _cancelled = false;
@@ -397,8 +398,12 @@ class AiAgentServiceImpl implements AiAgentService {
     },
   ];
 
-  AiAgentServiceImpl({required this.config, http.Client? client})
-      : _client = client ?? http.Client();
+  AiAgentServiceImpl({
+    required this.config,
+    http.Client? client,
+    http.Client Function()? clientFactory,
+  })  : _client = client ?? http.Client(),
+        _clientFactory = clientFactory ?? http.Client.new;
 
   @override
   bool get isBusy => _isBusy;
@@ -546,8 +551,8 @@ class AiAgentServiceImpl implements AiAgentService {
       });
 
       // Use a per-request client so cancel() can close it without
-      // affecting the shared _client.
-      _activeStreamClient = http.Client();
+      // affecting the shared _client. Uses _clientFactory to respect proxy.
+      _activeStreamClient = _clientFactory();
       final streamedResponse = await _activeStreamClient!.send(request);
 
       if (streamedResponse.statusCode != 200) {

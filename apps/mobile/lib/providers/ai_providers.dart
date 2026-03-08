@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:data/data.dart';
 import 'package:domain/domain.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 import 'database_provider.dart';
 import 'proxy_providers.dart';
@@ -46,7 +49,18 @@ final aiAgentServiceProvider = Provider<AiAgentService?>((ref) {
   }
   _lastAgentConfig = config;
   _lastAgentClient = client;
-  _cachedAgent = AiAgentServiceImpl(config: config, client: client);
+  _cachedAgent = AiAgentServiceImpl(
+    config: config,
+    client: client,
+    clientFactory: () {
+      final proxy = ref.read(proxyConfigProvider).valueOrNull;
+      if (proxy != null && proxy.isValid) {
+        final ioClient = HttpClient()..findProxy = (uri) => proxy.proxyUrl;
+        return IOClient(ioClient);
+      }
+      return http.Client();
+    },
+  );
   return _cachedAgent;
 });
 
