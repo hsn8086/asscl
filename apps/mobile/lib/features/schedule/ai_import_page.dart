@@ -1873,9 +1873,8 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                   ],
                 ),
               ),
-            // Copy button for assistant messages.
-            if (!isUser &&
-                msg.text != null &&
+            // Copy button for messages.
+            if (msg.text != null &&
                 msg.text!.isNotEmpty &&
                 !msg.isStreaming)
               Padding(
