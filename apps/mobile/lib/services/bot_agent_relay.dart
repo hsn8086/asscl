@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import '../providers/ai_providers.dart';
 import '../providers/bot_providers.dart';
 import '../providers/course_providers.dart';
+import '../providers/period_config_providers.dart';
+import '../providers/reminder_providers.dart';
 import '../providers/semester_providers.dart';
 import '../providers/weather_providers.dart';
 
@@ -28,6 +30,7 @@ class BotAgentRelay {
   static const _autoExecTools = {
     'query_courses',
     'query_semesters',
+    'query_reminders',
     'get_current_context',
     'get_time',
   };
@@ -154,6 +157,8 @@ class BotAgentRelay {
           return _queryCoursesResult(args);
         case 'query_semesters':
           return _querySemestersResult();
+        case 'query_reminders':
+          return _queryRemindersResult();
         case 'get_current_context':
           return fetchCurrentContext(
             weatherEnabled: _ref.read(weatherEnabledProvider).valueOrNull ?? false,
@@ -162,7 +167,14 @@ class BotAgentRelay {
         case 'get_time':
           final now = DateTime.now();
           final timeFmt = DateFormat('yyyy-MM-dd HH:mm:ss (EEEE)', 'zh_CN');
-          return '当前时间：${timeFmt.format(now)}';
+          final buf = StringBuffer('当前时间：${timeFmt.format(now)}');
+          final week = _ref.read(currentWeekProvider);
+          buf.write('\n当前学期：第$week周');
+          final config = _ref.read(periodConfigProvider).valueOrNull;
+          if (config != null && config.periods.isNotEmpty) {
+            buf.write('\n当前节次：${_currentPeriodString(now, config)}');
+          }
+          return buf.toString();
         default:
           return '不支持的工具: ${tc.name}';
       }
@@ -222,12 +234,45 @@ class BotAgentRelay {
       'set_current_week': '设置当前周',
       'add_task': '添加任务',
       'add_reminder': '添加提醒',
+      'update_reminder': '修改提醒',
+      'delete_reminder': '删除提醒',
       'set_period_times': '设置节次时间',
       'create_semester': '创建学期',
       'update_semester': '修改学期',
       'delete_semester': '删除学期',
     };
     return names[name] ?? name;
+  }
+
+  Future<String> _queryRemindersResult() async {
+    final repo = _ref.read(reminderRepositoryProvider);
+    final reminders = await repo.watchAll().first;
+    if (reminders.isEmpty) return '当前没有任何提醒。';
+
+    final lines = reminders.map((r) {
+      final time = DateFormat('yyyy-MM-dd HH:mm').format(r.scheduledAt);
+      final active = r.isActive ? '' : ' (已关闭)';
+      return '${r.title}$active | $time';
+    });
+    return '提醒列表:\n${lines.join("\n")}';
+  }
+
+  String _currentPeriodString(DateTime now, PeriodConfig config) {
+    final nowMinutes = now.hour * 60 + now.minute;
+    final periods = config.periods.toList()
+      ..sort((a, b) => a.periodNumber.compareTo(b.periodNumber));
+
+    for (final p in periods) {
+      final startMin = p.startHour * 60 + p.startMinute;
+      final endMin = p.endHour * 60 + p.endMinute;
+      if (nowMinutes < startMin) {
+        return '第${p.periodNumber}节课前（${p.startTimeStr}开始）';
+      }
+      if (nowMinutes < endMin) {
+        return '第${p.periodNumber}节（${p.startTimeStr}-${p.endTimeStr}）';
+      }
+    }
+    return '今日课程已结束';
   }
 }
 

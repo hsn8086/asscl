@@ -21,7 +21,7 @@ class AiAgentServiceImpl implements AiAgentService {
 1. 从文本或图片中识别并导入课程表信息
 2. 查询、修改、删除课程
 3. 设置当前周次（设置第几周为本周）
-4. 添加任务和提醒
+4. 添加、查询、修改、删除提醒
 5. 设置节次时间（每节课的上下课时间）
 6. 管理学期（查询、创建、修改、删除学期）
 7. 回答关于课程安排的问题
@@ -34,13 +34,16 @@ class AiAgentServiceImpl implements AiAgentService {
 当用户要设置当前周次时，使用 set_current_week 工具。
 当用户要添加任务时，使用 add_task 工具。
 当用户要添加提醒时，使用 add_reminder 工具。
+当用户要查询提醒时，使用 query_reminders 工具。
+当用户要修改提醒时，先用 query_reminders 查到提醒ID，再用 update_reminder 修改。
+当用户要删除提醒时，先用 query_reminders 查到提醒ID，再用 delete_reminder 删除。
 当用户要设置节次时间时，使用 set_period_times 工具。
 当用户要查询学期时，使用 query_semesters 工具。
 当用户要创建学期时，使用 create_semester 工具。
 当用户要修改学期时，先用 query_semesters 查到学期ID，再用 update_semester 修改。
 当用户要删除学期时，先用 query_semesters 查到学期ID，再用 delete_semester 删除。
 当用户询问天气或位置相关问题时，使用 get_current_context 工具。
-当用户询问现在几点、今天星期几、当前日期等时间相关问题时，使用 get_time 工具。
+当用户询问现在几点、今天星期几、当前日期、第几周、第几节课等时间相关问题时，使用 get_time 工具。
 不要直接输出 JSON，而是调用工具。
 
 如果用户只是聊天或提问且不涉及上述操作，正常回复即可。
@@ -230,6 +233,63 @@ class AiAgentServiceImpl implements AiAgentService {
             'scheduledAt': {
               'type': 'string',
               'description': '提醒时间，ISO 8601 格式，如 2026-03-15T08:00:00',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'query_reminders',
+        'description': '查询所有提醒/闹钟。返回提醒列表，包含 ID、标题、时间等信息。',
+        'parameters': {
+          'type': 'object',
+          'properties': {},
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'update_reminder',
+        'description': '修改已有的提醒/闹钟。先用 query_reminders 查到提醒ID。',
+        'parameters': {
+          'type': 'object',
+          'required': ['reminderId'],
+          'properties': {
+            'reminderId': {
+              'type': 'string',
+              'description': '提醒ID',
+            },
+            'title': {
+              'type': 'string',
+              'description': '新的提醒标题',
+            },
+            'body': {
+              'type': 'string',
+              'description': '新的提醒内容/描述',
+            },
+            'scheduledAt': {
+              'type': 'string',
+              'description': '新的提醒时间，ISO 8601 格式',
+            },
+          },
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'delete_reminder',
+        'description': '删除一个提醒/闹钟。先用 query_reminders 查到提醒ID。',
+        'parameters': {
+          'type': 'object',
+          'required': ['reminderId'],
+          'properties': {
+            'reminderId': {
+              'type': 'string',
+              'description': '要删除的提醒ID',
             },
           },
         },

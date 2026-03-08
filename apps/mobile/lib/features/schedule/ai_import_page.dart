@@ -53,6 +53,11 @@ class _PendingToolCall {
   Map<String, dynamic>? addTaskFields;
   // add_reminder
   Map<String, dynamic>? addReminderFields;
+  // update_reminder
+  Reminder? updateReminderOriginal;
+  Map<String, dynamic>? updateReminderFields;
+  // delete_reminder
+  Reminder? deleteReminder;
   // set_period_times
   Map<String, dynamic>? setPeriodTimesFields;
 
@@ -694,6 +699,12 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
           _prepareAddTask(ptc, tc);
         case 'add_reminder':
           _prepareAddReminder(ptc, tc);
+        case 'query_reminders':
+          await _executeQueryReminders(ptc: ptc, tc: tc, agent: agent);
+        case 'update_reminder':
+          await _prepareUpdateReminder(ptc, tc);
+        case 'delete_reminder':
+          await _prepareDeleteReminder(ptc, tc);
         case 'set_period_times':
           _prepareSetPeriodTimes(ptc, tc);
         case 'query_semesters':
@@ -1081,8 +1092,39 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
   }) {
     final now = DateTime.now();
     final timeFmt = DateFormat('yyyy-MM-dd HH:mm:ss (EEEE)', 'zh_CN');
-    agent.addToolResult(tc.id, '当前时间：${timeFmt.format(now)}');
+    final buf = StringBuffer('当前时间：${timeFmt.format(now)}');
+
+    // 当前周次
+    final week = ref.read(currentWeekProvider);
+    buf.write('\n当前学期：第$week周');
+
+    // 当前节次
+    final configAsync = ref.read(periodConfigProvider);
+    final config = configAsync.valueOrNull;
+    if (config != null && config.periods.isNotEmpty) {
+      buf.write('\n当前节次：${_currentPeriodString(now, config)}');
+    }
+
+    agent.addToolResult(tc.id, buf.toString());
     ptc.status = _ToolCallStatus.confirmed;
+  }
+
+  String _currentPeriodString(DateTime now, PeriodConfig config) {
+    final nowMinutes = now.hour * 60 + now.minute;
+    final periods = config.periods.toList()
+      ..sort((a, b) => a.periodNumber.compareTo(b.periodNumber));
+
+    for (final p in periods) {
+      final startMin = p.startHour * 60 + p.startMinute;
+      final endMin = p.endHour * 60 + p.endMinute;
+      if (nowMinutes < startMin) {
+        return '第${p.periodNumber}节课前（${p.startTimeStr}开始）';
+      }
+      if (nowMinutes < endMin) {
+        return '第${p.periodNumber}节（${p.startTimeStr}-${p.endTimeStr}）';
+      }
+    }
+    return '今日课程已结束';
   }
 
   Future<void> _executeCreateSemester({
@@ -1310,6 +1352,121 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
 
   void _rejectAddReminder(_PendingToolCall ptc, _UiMessage msg) {
     _rejectToolCall(ptc, msg, '用户拒绝了添加提醒。');
+  }
+
+  // ===== query_reminders — auto execute =====
+  Future<void> _executeQueryReminders({
+    required _PendingToolCall ptc,
+    required ChatToolCall tc,
+    required AiAgentService agent,
+  }) async {
+    final repo = ref.read(reminderRepositoryProvider);
+    final reminders = await repo.watchAll().first;
+
+    if (reminders.isEmpty) {
+      agent.addToolResult(tc.id, '当前没有任何提醒。');
+    } else {
+      final list = reminders.map((r) {
+        final time = DateFormat('yyyy-MM-dd HH:mm').format(r.scheduledAt);
+        return {
+          'id': r.id,
+          'title': r.title,
+          if (r.body != null) 'body': r.body,
+          'scheduledAt': time,
+          'type': r.type.name,
+          'isActive': r.isActive,
+        };
+      }).toList();
+      agent.addToolResult(tc.id, jsonEncode(list));
+    }
+    ptc.status = _ToolCallStatus.confirmed;
+  }
+
+  // ===== update_reminder — pending confirmation =====
+  Future<void> _prepareUpdateReminder(_PendingToolCall ptc, ChatToolCall tc) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final reminderId = args['reminderId'] as String;
+      final repo = ref.read(reminderRepositoryProvider);
+      final original = await repo.findById(reminderId);
+      if (original == null) {
+        final agent = ref.read(aiAgentServiceProvider);
+        agent?.addToolResult(tc.id, '找不到 ID 为 $reminderId 的提醒。');
+        ptc.status = _ToolCallStatus.confirmed;
+        return;
+      }
+      ptc.updateReminderOriginal = original;
+      ptc.updateReminderFields = args;
+    } catch (e) {
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析修改提醒参数失败: $e');
+      ptc.status = _ToolCallStatus.confirmed;
+    }
+  }
+
+  Future<void> _confirmUpdateReminder(_PendingToolCall ptc, _UiMessage msg) async {
+    final original = ptc.updateReminderOriginal;
+    final fields = ptc.updateReminderFields;
+    if (original == null || fields == null) return;
+
+    final updated = original.copyWith(
+      title: fields['title'] as String? ?? original.title,
+      body: fields.containsKey('body') ? () => fields['body'] as String? : null,
+      scheduledAt: fields['scheduledAt'] != null
+          ? DateTime.parse(fields['scheduledAt'] as String)
+          : original.scheduledAt,
+      updatedAt: DateTime.now(),
+    );
+
+    await ref.read(reminderRepositoryProvider).save(updated);
+    ref.invalidate(watchRemindersProvider);
+
+    _confirmToolCall(ptc, msg,
+      '已修改提醒「${updated.title}」。',
+      '已修改提醒「${updated.title}」',
+    );
+  }
+
+  void _rejectUpdateReminder(_PendingToolCall ptc, _UiMessage msg) {
+    _rejectToolCall(ptc, msg, '用户拒绝了修改提醒。');
+  }
+
+  // ===== delete_reminder — pending confirmation =====
+  Future<void> _prepareDeleteReminder(_PendingToolCall ptc, ChatToolCall tc) async {
+    try {
+      final args = jsonDecode(tc.arguments) as Map<String, dynamic>;
+      final reminderId = args['reminderId'] as String;
+      final repo = ref.read(reminderRepositoryProvider);
+      final reminder = await repo.findById(reminderId);
+      if (reminder == null) {
+        final agent = ref.read(aiAgentServiceProvider);
+        agent?.addToolResult(tc.id, '找不到 ID 为 $reminderId 的提醒。');
+        ptc.status = _ToolCallStatus.confirmed;
+        return;
+      }
+      ptc.deleteReminder = reminder;
+    } catch (e) {
+      final agent = ref.read(aiAgentServiceProvider);
+      agent?.addToolResult(tc.id, '解析删除提醒参数失败: $e');
+      ptc.status = _ToolCallStatus.confirmed;
+    }
+  }
+
+  Future<void> _confirmDeleteReminder(_PendingToolCall ptc, _UiMessage msg) async {
+    final reminder = ptc.deleteReminder;
+    if (reminder == null) return;
+
+    await ref.read(reminderRepositoryProvider).delete(reminder.id);
+    ref.invalidate(watchRemindersProvider);
+
+    _confirmToolCall(ptc, msg,
+      '已删除提醒「${reminder.title}」。',
+      '已删除提醒「${reminder.title}」',
+    );
+  }
+
+  void _rejectDeleteReminder(_PendingToolCall ptc, _UiMessage msg) {
+    _rejectToolCall(ptc, msg, '用户拒绝了删除提醒。');
   }
 
   // ===== set_period_times — pending confirmation =====
@@ -1957,6 +2114,9 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       'set_current_week' => '设置本周',
       'add_task' => '添加任务',
       'add_reminder' => '添加提醒',
+      'query_reminders' => '查询提醒',
+      'update_reminder' => '修改提醒',
+      'delete_reminder' => '删除提醒',
       'set_period_times' => '设置节次时间',
       'query_semesters' => '查询学期',
       'create_semester' => '创建学期',
@@ -2034,6 +2194,14 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
       case 'add_reminder':
         if (ptc.addReminderFields != null) {
           return _buildAddReminderConfirmCard(ptc, msg, theme);
+        }
+      case 'update_reminder':
+        if (ptc.updateReminderOriginal != null) {
+          return _buildUpdateReminderConfirmCard(ptc, msg, theme);
+        }
+      case 'delete_reminder':
+        if (ptc.deleteReminder != null) {
+          return _buildDeleteReminderConfirmCard(ptc, msg, theme);
         }
       case 'set_period_times':
         if (ptc.setPeriodTimesFields != null) {
@@ -2405,6 +2573,155 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                       onPressed: () => _rejectAddReminder(ptc, msg),
                       icon: const Icon(Icons.close, size: 16),
                       label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpdateReminderConfirmCard(_PendingToolCall ptc, _UiMessage msg, ThemeData theme) {
+    final status = ptc.status;
+    final original = ptc.updateReminderOriginal!;
+    final fields = ptc.updateReminderFields!;
+    final newTitle = fields['title'] as String? ?? original.title;
+    final newBody = fields.containsKey('body') ? fields['body'] as String? : original.body;
+    final newScheduledAt = fields['scheduledAt'] as String?;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : Icons.edit_notifications,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : status == _ToolCallStatus.rejected
+                            ? theme.colorScheme.error
+                            : null,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '已修改提醒'
+                        : status == _ToolCallStatus.rejected
+                            ? '已拒绝修改提醒'
+                            : '修改提醒',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (newTitle != original.title)
+                Text('标题: ${original.title} → $newTitle', style: theme.textTheme.bodySmall),
+              if (newTitle == original.title)
+                Text('标题: $newTitle', style: theme.textTheme.bodySmall),
+              if (newBody != original.body && newBody != null)
+                Text('内容: $newBody', style: theme.textTheme.bodySmall),
+              if (newScheduledAt != null)
+                Text('提醒时间: ${DateFormat('yyyy-MM-dd HH:mm').format(original.scheduledAt)} → $newScheduledAt', style: theme.textTheme.bodySmall),
+              if (status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _confirmUpdateReminder(ptc, msg),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('确认修改'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _rejectUpdateReminder(ptc, msg),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('拒绝'),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeleteReminderConfirmCard(_PendingToolCall ptc, _UiMessage msg, ThemeData theme) {
+    final status = ptc.status;
+    final reminder = ptc.deleteReminder!;
+    final timeStr = DateFormat('yyyy-MM-dd HH:mm').format(reminder.scheduledAt);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    status == _ToolCallStatus.confirmed
+                        ? Icons.check_circle
+                        : status == _ToolCallStatus.rejected
+                            ? Icons.cancel
+                            : Icons.notifications_off,
+                    size: 18,
+                    color: status == _ToolCallStatus.confirmed
+                        ? theme.colorScheme.primary
+                        : status == _ToolCallStatus.rejected
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.error,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    status == _ToolCallStatus.confirmed
+                        ? '已删除提醒'
+                        : status == _ToolCallStatus.rejected
+                            ? '已拒绝删除提醒'
+                            : '删除提醒',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text('标题: ${reminder.title}', style: theme.textTheme.bodySmall),
+              if (reminder.body != null)
+                Text('内容: ${reminder.body}', style: theme.textTheme.bodySmall),
+              Text('提醒时间: $timeStr', style: theme.textTheme.bodySmall),
+              if (status == _ToolCallStatus.pending) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _confirmDeleteReminder(ptc, msg),
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('确认删除'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: theme.colorScheme.error,
+                        foregroundColor: theme.colorScheme.onError,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _rejectDeleteReminder(ptc, msg),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('取消'),
                     ),
                   ],
                 ),
