@@ -1860,47 +1860,86 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
             child: SafeArea(
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.photo_library),
-                    tooltip: '选择图片',
-                    onPressed: _isSending
-                        ? null
-                        : () => _pickImage(ImageSource.gallery),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.camera_alt),
-                    tooltip: '拍照',
-                    onPressed: _isSending
-                        ? null
-                        : () => _pickImage(ImageSource.camera),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.attach_file),
-                    tooltip: '导入文件',
-                    onPressed: _isSending ? null : _pickDocument,
-                  ),
-                  if (voiceEnabled)
-                    _isTranscribing
-                        ? const SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: Padding(
-                              padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
-                        : IconButton(
-                            icon: Icon(
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: '更多',
+                    enabled: !_isSending,
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'gallery':
+                          _pickImage(ImageSource.gallery);
+                        case 'camera':
+                          _pickImage(ImageSource.camera);
+                        case 'file':
+                          _pickDocument();
+                        case 'voice':
+                          _toggleRecording();
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'gallery',
+                        child: ListTile(
+                          leading: Icon(Icons.photo_library),
+                          title: Text('选择图片'),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'camera',
+                        child: ListTile(
+                          leading: Icon(Icons.camera_alt),
+                          title: Text('拍照'),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'file',
+                        child: ListTile(
+                          leading: Icon(Icons.attach_file),
+                          title: Text('导入文件'),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      if (voiceEnabled)
+                        PopupMenuItem(
+                          value: 'voice',
+                          enabled: !_isTranscribing,
+                          child: ListTile(
+                            leading: Icon(
                               _isRecording ? Icons.stop_circle : Icons.mic,
                               color: _isRecording
                                   ? theme.colorScheme.error
                                   : null,
                             ),
-                            tooltip: _isRecording ? '停止录音' : '语音输入',
-                            onPressed: (_isSending || _isTranscribing)
-                                ? null
-                                : _toggleRecording,
+                            title: Text(_isRecording ? '停止录音' : '语音输入'),
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
                           ),
+                        ),
+                    ],
+                  ),
+                  if (_isTranscribing)
+                    const SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else if (_isRecording)
+                    IconButton(
+                      icon: Icon(
+                        Icons.stop_circle,
+                        color: theme.colorScheme.error,
+                      ),
+                      tooltip: '停止录音',
+                      onPressed: _toggleRecording,
+                    ),
                   Expanded(
                     child: KeyboardListener(
                       focusNode: FocusNode(),
