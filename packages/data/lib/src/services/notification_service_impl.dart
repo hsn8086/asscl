@@ -7,6 +7,17 @@ class NotificationServiceImpl implements domain.NotificationService {
 
   NotificationServiceImpl(this._plugin);
 
+  /// Convert a UUID string to a stable 31-bit positive int for notification IDs.
+  /// Uses FNV-1a hash for better distribution than String.hashCode.
+  static int _stableId(String uuid) {
+    var hash = 0x811c9dc5; // FNV offset basis
+    for (var i = 0; i < uuid.length; i++) {
+      hash ^= uuid.codeUnitAt(i);
+      hash = (hash * 0x01000193) & 0x7FFFFFFF; // FNV prime, keep 31-bit positive
+    }
+    return hash;
+  }
+
   @override
   Future<void> schedule(domain.Reminder reminder) async {
     const androidDetails = AndroidNotificationDetails(
@@ -23,7 +34,7 @@ class NotificationServiceImpl implements domain.NotificationService {
     );
 
     await _plugin.zonedSchedule(
-      reminder.id.hashCode,
+      _stableId(reminder.id),
       reminder.title,
       reminder.body,
       tz.TZDateTime.from(reminder.scheduledAt, tz.local),
@@ -36,7 +47,7 @@ class NotificationServiceImpl implements domain.NotificationService {
 
   @override
   Future<void> cancel(String reminderId) =>
-      _plugin.cancel(reminderId.hashCode);
+      _plugin.cancel(_stableId(reminderId));
 
   @override
   Future<void> cancelAll() => _plugin.cancelAll();
