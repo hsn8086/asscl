@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/ai_providers.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/onboarding_provider.dart';
+import '../../providers/proxy_providers.dart';
 import '../../providers/sync_providers.dart';
 
 class OnboardingPage extends ConsumerStatefulWidget {
@@ -95,6 +96,23 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     _nextPage();
   }
 
+  SyncService? _buildSyncService() {
+    final config = WebDavConfig(
+      url: _webdavUrlController.text.trim(),
+      username: _webdavUsernameController.text.trim(),
+      password: _webdavPasswordController.text.trim(),
+      remotePath: _webdavPathController.text.trim(),
+    );
+    if (!config.isValid) return null;
+
+    final client = ref.read(httpClientProvider);
+    final db = ref.read(appDatabaseProvider);
+    return SyncService(
+      db: db,
+      webdav: WebDavService(config: config, client: client),
+    );
+  }
+
   Future<void> _testWebDavConnection() async {
     // Save first so provider picks up values.
     final db = ref.read(appDatabaseProvider);
@@ -107,12 +125,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     ref.invalidate(webDavConfigProvider);
     ref.invalidate(syncServiceProvider);
 
-    // Wait for provider to rebuild.
-    await Future.delayed(const Duration(milliseconds: 100));
-
     setState(() => _webdavBusy = true);
     try {
-      final sync = ref.read(syncServiceProvider);
+      final sync = _buildSyncService();
       if (sync == null) {
         _showSnackBar('请先填写完整的 WebDAV 配置');
         return;
@@ -138,11 +153,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     ref.invalidate(webDavConfigProvider);
     ref.invalidate(syncServiceProvider);
 
-    await Future.delayed(const Duration(milliseconds: 100));
-
     setState(() => _webdavBusy = true);
     try {
-      final sync = ref.read(syncServiceProvider);
+      final sync = _buildSyncService();
       if (sync == null) {
         _showSnackBar('请先填写完整的 WebDAV 配置');
         return;

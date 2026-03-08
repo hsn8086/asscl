@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/database_provider.dart';
+import '../../providers/proxy_providers.dart';
 import '../../providers/sync_providers.dart';
 
 class WebDavSettingsPage extends ConsumerStatefulWidget {
@@ -67,11 +68,30 @@ class _WebDavSettingsPageState extends ConsumerState<WebDavSettingsPage> {
     }
   }
 
+  /// Build a [SyncService] directly from the current form values,
+  /// bypassing the async provider chain.
+  SyncService? _buildSyncService() {
+    final config = WebDavConfig(
+      url: _urlController.text.trim(),
+      username: _usernameController.text.trim(),
+      password: _passwordController.text.trim(),
+      remotePath: _pathController.text.trim(),
+    );
+    if (!config.isValid) return null;
+
+    final client = ref.read(httpClientProvider);
+    final db = ref.read(appDatabaseProvider);
+    return SyncService(
+      db: db,
+      webdav: WebDavService(config: config, client: client),
+    );
+  }
+
   Future<void> _testConnection() async {
     await _save();
     setState(() => _busy = true);
     try {
-      final sync = ref.read(syncServiceProvider);
+      final sync = _buildSyncService();
       if (sync == null) {
         _showSnackBar('请先填写完整的 WebDAV 配置');
         return;
@@ -89,7 +109,7 @@ class _WebDavSettingsPageState extends ConsumerState<WebDavSettingsPage> {
     await _save();
     setState(() => _busy = true);
     try {
-      final sync = ref.read(syncServiceProvider);
+      final sync = _buildSyncService();
       if (sync == null) {
         _showSnackBar('请先填写完整的 WebDAV 配置');
         return;
@@ -126,7 +146,7 @@ class _WebDavSettingsPageState extends ConsumerState<WebDavSettingsPage> {
     await _save();
     setState(() => _busy = true);
     try {
-      final sync = ref.read(syncServiceProvider);
+      final sync = _buildSyncService();
       if (sync == null) {
         _showSnackBar('请先填写完整的 WebDAV 配置');
         return;

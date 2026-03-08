@@ -23,6 +23,16 @@ class SyncService {
   final AppDatabase db;
   final WebDavService webdav;
 
+  /// Settings keys excluded from backup (device-specific or transient).
+  static const _excludedSettingsKeys = {
+    'onboardingCompleted',
+    'webdavUrl',
+    'webdavUsername',
+    'webdavPassword',
+    'webdavRemotePath',
+    'weatherAlertLastDate',
+  };
+
   SyncService({required this.db, required this.webdav});
 
   /// Export all data and upload to WebDAV.
@@ -55,7 +65,15 @@ class SyncService {
     final reminders = await reminderDao.watchAll().first;
     final periodTimes = await periodTimeDao.getAll();
     final semesters = await semesterDao.watchAll().first;
-    final activeSemesterId = await settingsDao.getValue('activeSemesterId');
+    final allSettings = await settingsDao.getAll();
+
+    // Filter out excluded keys.
+    final settings = <String, String>{};
+    for (final entry in allSettings.entries) {
+      if (!_excludedSettingsKeys.contains(entry.key)) {
+        settings[entry.key] = entry.value;
+      }
+    }
 
     // Load subtasks for each task.
     final tasksWithSubtasks = <Map<String, dynamic>>[];
@@ -66,9 +84,9 @@ class SyncService {
     }
 
     return {
-      'version': 1,
+      'version': 2,
       'exportedAt': DateTime.now().toIso8601String(),
-      'activeSemesterId': activeSemesterId,
+      'settings': settings,
       'semesters': semesters.map((s) => _semesterToJson(s.toDomain())).toList(),
       'courses': courses.map((c) => _courseToJson(c.toDomain())).toList(),
       'tasks': tasksWithSubtasks,
@@ -81,7 +99,7 @@ class SyncService {
 
   Future<void> _importAll(Map<String, dynamic> json) async {
     final version = json['version'] as int?;
-    if (version != 1) {
+    if (version != 1 && version != 2) {
       throw WebDavException('不支持的备份版本: $version');
     }
 
@@ -145,10 +163,24 @@ class SyncService {
         await periodTimeDao.replaceAll(ptEntries);
       }
 
-      // Restore active semester.
-      final activeSemesterId = json['activeSemesterId'] as String?;
-      if (activeSemesterId != null) {
-        await settingsDao.setValue('activeSemesterId', activeSemesterId);
+      // Import settings.
+      if (version == 2) {
+        // v2: full settings map (excluding device-specific keys).
+        final settings =
+            (json['settings'] as Map<String, dynamic>?)?.cast<String, String>();
+        if (settings != null) {
+          for (final entry in settings.entries) {
+            if (!_excludedSettingsKeys.contains(entry.key)) {
+              await settingsDao.setValue(entry.key, entry.value);
+            }
+          }
+        }
+      } else {
+        // v1: only activeSemesterId.
+        final activeSemesterId = json['activeSemesterId'] as String?;
+        if (activeSemesterId != null) {
+          await settingsDao.setValue('activeSemesterId', activeSemesterId);
+        }
       }
     });
   }

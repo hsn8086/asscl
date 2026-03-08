@@ -29,4 +29,10 @@ class SettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> deleteKey(String key) =>
       (delete(settingsTable)..where((t) => t.key.equals(key))).go();
+
+  /// Returns all settings as a key→value map.
+  Future<Map<String, String>> getAll() async {
+    final rows = await select(settingsTable).get();
+    return {for (final r in rows) r.key: r.value};
+  }
 }
