@@ -1863,7 +1863,13 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                     controller: _scrollController,
                     padding: const EdgeInsets.all(12),
                     itemCount: _messages.length,
-                    itemBuilder: (_, i) => _buildMessage(_messages[i]),
+                    itemBuilder: (_, i) {
+                      final msg = _messages[i];
+                      return KeyedSubtree(
+                        key: ValueKey(msg.id),
+                        child: _buildMessage(msg),
+                      );
+                    },
                   ),
           ),
           if (!agentReady && _messages.isEmpty)
@@ -2053,13 +2059,13 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
   Widget _buildMessage(_UiMessage msg) {
     final isUser = msg.role == ChatRole.user;
     final theme = Theme.of(context);
+    final maxWidth = MediaQuery.sizeOf(context).width * 0.8;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        constraints:
-            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+        constraints: BoxConstraints(maxWidth: maxWidth),
         child: Column(
           crossAxisAlignment:
               isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -2124,8 +2130,8 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
                                 color: theme.colorScheme.onPrimary,
                               ),
                             )
-                          : GptMarkdown(
-                              msg.text!,
+                          : _CachedGptMarkdown(
+                              text: msg.text!,
                               style: TextStyle(
                                 color: theme.colorScheme.onSurface,
                               ),
@@ -3064,4 +3070,34 @@ class _AiImportPageState extends ConsumerState<AiImportPage> {
         'customWeeks' => course.customWeeks.toString(),
         _ => '?',
       };
+}
+
+/// Caches [GptMarkdown] to avoid expensive re-parsing on unrelated rebuilds
+/// (e.g. keyboard open/close triggering MediaQuery changes).
+class _CachedGptMarkdown extends StatefulWidget {
+  final String text;
+  final TextStyle? style;
+
+  const _CachedGptMarkdown({required this.text, this.style});
+
+  @override
+  State<_CachedGptMarkdown> createState() => _CachedGptMarkdownState();
+}
+
+class _CachedGptMarkdownState extends State<_CachedGptMarkdown> {
+  Widget? _cached;
+  String? _cachedText;
+  TextStyle? _cachedStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cached == null ||
+        _cachedText != widget.text ||
+        _cachedStyle != widget.style) {
+      _cachedText = widget.text;
+      _cachedStyle = widget.style;
+      _cached = GptMarkdown(widget.text, style: widget.style);
+    }
+    return _cached!;
+  }
 }
