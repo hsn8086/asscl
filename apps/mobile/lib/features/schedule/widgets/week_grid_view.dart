@@ -9,6 +9,7 @@ import 'package:presentation/presentation.dart';
 import '../../../providers/course_providers.dart';
 import '../../../providers/period_config_providers.dart';
 import '../../../providers/semester_providers.dart';
+import '../../../providers/shortened_names_provider.dart';
 import 'course_card.dart';
 
 const _weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -24,11 +25,15 @@ class WeekGridView extends ConsumerStatefulWidget {
   ConsumerState<WeekGridView> createState() => _WeekGridViewState();
 }
 
-class _WeekGridViewState extends ConsumerState<WeekGridView> {
+class _WeekGridViewState extends ConsumerState<WeekGridView>
+    with AutomaticKeepAliveClientMixin {
   late Timer _timer;
   DateTime _now = DateTime.now();
   double _verticalScale = 1.0;
   double _scaleStart = 1.0;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -46,11 +51,14 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required by AutomaticKeepAliveClientMixin
     final coursesAsync = ref.watch(watchCoursesProvider);
     final configAsync = ref.watch(periodConfigProvider);
     final weekNumber = widget.weekNumber;
 
     final config = configAsync.valueOrNull ?? const PeriodConfig();
+    final shortenedNames =
+        ref.watch(shortenedCourseNamesProvider).valueOrNull ?? {};
 
     // Time indicator and today highlight only show on the real current week.
     final realWeek = ref.watch(currentWeekProvider);
@@ -91,7 +99,7 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
             final needsScroll = gridHeight > availableHeight;
 
             Widget grid =
-                _buildGrid(context, filtered, config, isCurrentWeek, cellHeight);
+                _buildGrid(context, filtered, config, isCurrentWeek, cellHeight, shortenedNames);
 
             if (needsScroll) {
               grid = SingleChildScrollView(child: grid);
@@ -127,12 +135,13 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
   }
 
   Widget _buildGrid(BuildContext context, List<Course> courses,
-      PeriodConfig config, bool isCurrentWeek, double cellHeight) {
+      PeriodConfig config, bool isCurrentWeek, double cellHeight,
+      Map<String, String> shortenedNames) {
     final totalPeriods = config.totalPeriods;
     final hasTime = config.hasTimeInfo;
     final labelWidth = hasTime ? 56.0 : 40.0;
     final cellWidth =
-        (MediaQuery.of(context).size.width - labelWidth) / 7;
+        (MediaQuery.sizeOf(context).width - labelWidth) / 7;
 
     // Only show time indicator on the current week
     final timeIndicatorY = (hasTime && isCurrentWeek)
@@ -197,7 +206,7 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
                       child: _cellContent(
                         context,
                         courseMap, occupiedBy, day, period,
-                        cellWidth, cellHeight,
+                        cellWidth, cellHeight, shortenedNames,
                       ),
                     ),
                 ],
@@ -306,6 +315,7 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
     int period,
     double cellWidth,
     double cellHeight,
+    Map<String, String> shortenedNames,
   ) {
     final course = courseMap[(weekday, period)];
     if (course != null) {
@@ -323,6 +333,7 @@ class _WeekGridViewState extends ConsumerState<WeekGridView> {
             course: course,
             spanPeriods: spanPeriods,
             cellHeight: cellHeight,
+            shortenedNames: shortenedNames,
           ),
         ),
       );

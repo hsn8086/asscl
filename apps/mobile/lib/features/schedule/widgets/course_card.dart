@@ -8,17 +8,19 @@ import '../../../providers/shortened_names_provider.dart';
 
 const _weekdayNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
-class CourseCard extends ConsumerWidget {
+class CourseCard extends StatelessWidget {
   final Course course;
   final bool expanded;
   final int spanPeriods;
   final double cellHeight;
+  final Map<String, String>? shortenedNames;
 
   const CourseCard({
     required this.course,
     this.expanded = false,
     this.spanPeriods = 1,
     this.cellHeight = 60.0,
+    this.shortenedNames,
     super.key,
   });
 
@@ -40,30 +42,14 @@ class CourseCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (expanded) {
-      final config = ref.watch(periodConfigProvider).valueOrNull;
-      final timeRange = config?.timeRangeString(
-          course.startPeriod, course.endPeriod);
-      return Card(
-        color: _color.withValues(alpha: 0.15),
-        child: ListTile(
-          title: Text(course.name),
-          subtitle: Text(
-            '${_weekdayNames[course.weekday]} 第${course.startPeriod}-${course.endPeriod}节'
-            '${timeRange != null ? ' ($timeRange)' : ''}'
-            '${course.location != null ? ' · ${course.location}' : ''}',
-          ),
-          trailing: course.teacher != null ? Text(course.teacher!) : null,
-          onTap: () => context.go('/schedule/course/${course.id}'),
-        ),
-      );
+      return _ExpandedCourseCard(course: course);
     }
 
     // Grid card — may span multiple periods
-    final shortenedNames =
-        ref.watch(shortenedCourseNamesProvider).valueOrNull ?? {};
-    final displayName = lookupShortName(shortenedNames, course.name) ?? course.name;
+    final names = shortenedNames ?? {};
+    final displayName = lookupShortName(names, course.name) ?? course.name;
 
     final scale = cellHeight / 60.0;
     final nameFontSize = ((spanPeriods > 1 ? 11.0 : 10.0) * scale).clamp(8.0, 14.0);
@@ -112,6 +98,45 @@ class CourseCard extends ConsumerWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Expanded card used in TimeStreamView — needs provider access for period config.
+class _ExpandedCourseCard extends ConsumerWidget {
+  final Course course;
+
+  const _ExpandedCourseCard({required this.course});
+
+  Color get _color {
+    if (course.color != null) {
+      final hex = course.color!.replaceFirst('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    }
+    const palette = [
+      Colors.indigo, Colors.teal, Colors.orange, Colors.pink,
+      Colors.cyan, Colors.purple, Colors.green,
+    ];
+    return palette[course.weekday % palette.length];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(periodConfigProvider).valueOrNull;
+    final timeRange = config?.timeRangeString(
+        course.startPeriod, course.endPeriod);
+    return Card(
+      color: _color.withValues(alpha: 0.15),
+      child: ListTile(
+        title: Text(course.name),
+        subtitle: Text(
+          '${_weekdayNames[course.weekday]} 第${course.startPeriod}-${course.endPeriod}节'
+          '${timeRange != null ? ' ($timeRange)' : ''}'
+          '${course.location != null ? ' · ${course.location}' : ''}',
+        ),
+        trailing: course.teacher != null ? Text(course.teacher!) : null,
+        onTap: () => context.go('/schedule/course/${course.id}'),
       ),
     );
   }
