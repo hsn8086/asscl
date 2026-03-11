@@ -94,7 +94,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                   : null,
             ),
             GestureDetector(
-              onTap: () => context.push('/settings'),
+              onTap: () => context.go('/settings'),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: Text(
@@ -157,7 +157,7 @@ class _SchedulePageState extends ConsumerState<SchedulePage> {
                 case 'set_current_week':
                   _setAsCurrentWeek(context, weekNumber);
                 case 'settings':
-                  context.push('/settings');
+                  context.go('/settings');
               }
             },
             itemBuilder: (_) => [

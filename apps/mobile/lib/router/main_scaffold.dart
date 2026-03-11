@@ -27,6 +27,11 @@ class MainScaffold extends StatelessWidget {
             selectedIcon: Icon(Icons.auto_awesome),
             label: 'AI 助手',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: '设置',
+          ),
         ],
       ),
     );

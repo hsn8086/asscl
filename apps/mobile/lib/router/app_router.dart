@@ -55,58 +55,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, _) => const OnboardingPage(),
       ),
-      GoRoute(
-        path: '/settings',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, _) => const SettingsPage(),
-        routes: [
-          GoRoute(
-            path: 'period-config',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const PeriodConfigPage(),
-          ),
-          GoRoute(
-            path: 'semesters',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const SemesterManagePage(),
-          ),
-          GoRoute(
-            path: 'shortened-names',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const ShortenedNamesPage(),
-          ),
-          GoRoute(
-            path: 'bot',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const BotSettingsPage(),
-          ),
-          GoRoute(
-            path: 'ai-config',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const AiConfigPage(),
-          ),
-          GoRoute(
-            path: 'proxy',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const ProxySettingsPage(),
-          ),
-          GoRoute(
-            path: 'weather',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const WeatherSettingsPage(),
-          ),
-          GoRoute(
-            path: 'webdav',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const WebDavSettingsPage(),
-          ),
-          GoRoute(
-            path: 'developer',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (_, _) => const DeveloperPage(),
-          ),
-        ],
-      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => MainScaffold(shell: shell),
         branches: [
@@ -143,6 +91,59 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: '/agent',
               builder: (_, _) => const AiImportPage(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/settings',
+              builder: (_, _) => const SettingsPage(),
+              routes: [
+                GoRoute(
+                  path: 'period-config',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const PeriodConfigPage(),
+                ),
+                GoRoute(
+                  path: 'semesters',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const SemesterManagePage(),
+                ),
+                GoRoute(
+                  path: 'shortened-names',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const ShortenedNamesPage(),
+                ),
+                GoRoute(
+                  path: 'bot',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const BotSettingsPage(),
+                ),
+                GoRoute(
+                  path: 'ai-config',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const AiConfigPage(),
+                ),
+                GoRoute(
+                  path: 'proxy',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const ProxySettingsPage(),
+                ),
+                GoRoute(
+                  path: 'weather',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const WeatherSettingsPage(),
+                ),
+                GoRoute(
+                  path: 'webdav',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const WebDavSettingsPage(),
+                ),
+                GoRoute(
+                  path: 'developer',
+                  parentNavigatorKey: _rootNavigatorKey,
+                  builder: (_, _) => const DeveloperPage(),
+                ),
+              ],
             ),
           ]),
         ],
