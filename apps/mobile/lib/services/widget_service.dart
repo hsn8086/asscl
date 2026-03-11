@@ -101,7 +101,7 @@ class WidgetService {
       ..sort((a, b) => a.startPeriod.compareTo(b.startPeriod));
   }
 
-  /// Find the next upcoming course (not yet ended).
+  /// Find the next upcoming course (not yet started).
   /// Returns the first course of the day if no time info is configured.
   Course? findNextCourse(
       List<Course> todayCourses, PeriodConfig config, DateTime now) {
@@ -113,12 +113,12 @@ class WidgetService {
 
     final nowMinutes = now.hour * 60 + now.minute;
     for (final c in todayCourses) {
-      final periodTime = config.getTime(c.endPeriod);
+      final periodTime = config.getTime(c.startPeriod);
       if (periodTime == null) continue;
-      final endMinutes = periodTime.endHour * 60 + periodTime.endMinute;
-      if (endMinutes > nowMinutes) return c;
+      final startMinutes = periodTime.startHour * 60 + periodTime.startMinute;
+      if (startMinutes > nowMinutes) return c;
     }
-    return null; // All classes ended
+    return null; // All classes started or ended
   }
 
   /// Serialize a course to a map suitable for widget display.
@@ -126,6 +126,10 @@ class WidgetService {
       Map<String, String> shortenedNames) {
     final timeRange = config.timeRangeString(c.startPeriod, c.endPeriod);
     final shortName = shortenedNames[c.name.trim().toLowerCase()];
+    final startTime = config.getTime(c.startPeriod);
+    final startMinutes = startTime != null
+        ? startTime.startHour * 60 + startTime.startMinute
+        : -1;
     return {
       'name': shortName ?? c.name,
       'location': c.location ?? '',
@@ -134,6 +138,7 @@ class WidgetService {
       'endPeriod': c.endPeriod,
       'timeRange': timeRange ?? '第${c.startPeriod}-${c.endPeriod}节',
       'color': c.color ?? '',
+      'startMinutes': startMinutes,
     };
   }
 

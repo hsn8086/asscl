@@ -17,12 +17,6 @@ import '../features/settings/proxy_settings_page.dart';
 import '../features/settings/weather_settings_page.dart';
 import '../features/settings/webdav_settings_page.dart';
 import '../features/settings/developer_page.dart';
-import '../features/tasks/tasks_page.dart';
-import '../features/tasks/task_detail_page.dart';
-import '../features/tasks/task_form_page.dart';
-import '../features/reminders/reminders_page.dart';
-import '../features/reminders/reminder_detail_page.dart';
-import '../features/reminders/reminder_form_page.dart';
 import '../providers/onboarding_provider.dart';
 import 'main_scaffold.dart';
 
@@ -149,64 +143,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: '/agent',
               builder: (_, _) => const AiImportPage(),
-            ),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/tasks',
-              builder: (_, _) => const TasksPage(),
-              routes: [
-                GoRoute(
-                  path: 'new',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (_, _) => const TaskFormPage(),
-                ),
-                GoRoute(
-                  path: ':id',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (_, state) => TaskDetailPage(
-                    taskId: state.pathParameters['id']!,
-                  ),
-                  routes: [
-                    GoRoute(
-                      path: 'edit',
-                      parentNavigatorKey: _rootNavigatorKey,
-                      builder: (_, state) => TaskFormPage(
-                        taskId: state.pathParameters['id'],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/reminders',
-              builder: (_, _) => const RemindersPage(),
-              routes: [
-                GoRoute(
-                  path: 'new',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (_, _) => const ReminderFormPage(),
-                ),
-                GoRoute(
-                  path: ':id',
-                  parentNavigatorKey: _rootNavigatorKey,
-                  builder: (_, state) => ReminderDetailPage(
-                    reminderId: state.pathParameters['id']!,
-                  ),
-                  routes: [
-                    GoRoute(
-                      path: 'edit',
-                      parentNavigatorKey: _rootNavigatorKey,
-                      builder: (_, state) => ReminderFormPage(
-                        reminderId: state.pathParameters['id'],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ),
           ]),
         ],

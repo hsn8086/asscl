@@ -159,34 +159,35 @@ void main() {
       expect(result?.id, 'a');
     });
 
-    test('returns next not-yet-ended course', () {
+    test('returns next not-yet-started course', () {
       final courses = [
         _course(id: 'a', startPeriod: 1, endPeriod: 2),
         _course(id: 'b', startPeriod: 3, endPeriod: 4),
       ];
-      // At 9:00, course 'a' (ends 9:40) is still ongoing
+      // At 7:50, before course 'a' starts (8:00), show 'a'
       final result = service.findNextCourse(
-          courses, config, DateTime(2026, 3, 6, 9, 0));
+          courses, config, DateTime(2026, 3, 6, 7, 50));
       expect(result?.id, 'a');
     });
 
-    test('skips ended courses', () {
+    test('skips started courses', () {
       final courses = [
         _course(id: 'a', startPeriod: 1, endPeriod: 2),
         _course(id: 'b', startPeriod: 3, endPeriod: 4),
       ];
-      // At 9:45, course 'a' (ends 9:40) has ended
+      // At 8:05, course 'a' (starts 8:00) has started → show 'b' (starts 10:00)
       final result = service.findNextCourse(
-          courses, config, DateTime(2026, 3, 6, 9, 45));
+          courses, config, DateTime(2026, 3, 6, 8, 5));
       expect(result?.id, 'b');
     });
 
-    test('returns null when all ended', () {
+    test('returns null when all started', () {
       final courses = [
         _course(id: 'a', startPeriod: 1, endPeriod: 2),
       ];
+      // At 8:05, course 'a' (starts 8:00) has started
       final result = service.findNextCourse(
-          courses, config, DateTime(2026, 3, 6, 10, 0));
+          courses, config, DateTime(2026, 3, 6, 8, 5));
       expect(result, isNull);
     });
   });
