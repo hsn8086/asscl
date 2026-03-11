@@ -24,7 +24,7 @@ asscl/
 │       │   ├── app.dart               # MaterialApp.router + 微件同步
 │       │   ├── router/
 │       │   │   ├── app_router.dart    # GoRouter + StatefulShellRoute
-│       │   │   └── main_scaffold.dart # 底部导航栏（4 Tab）
+│       │   │   └── main_scaffold.dart # 底部导航栏（3 Tab）
 │       │   ├── providers/
 │       │   │   ├── database_provider.dart
 │       │   │   ├── course_providers.dart
@@ -53,15 +53,15 @@ asscl/
 │       │       │       ├── week_grid_view.dart  # 含时间指针
 │       │       │       ├── time_stream_view.dart
 │       │       │       └── course_card.dart     # 支持 AI 简称显示
-│       │       ├── tasks/             # 任务 Tab
+│       │       ├── tasks/             # 任务（已隐藏，代码保留）
 │       │       │   ├── tasks_page.dart
 │       │       │   ├── task_detail_page.dart
 │       │       │   └── task_form_page.dart
-│       │       ├── reminders/         # 提醒 Tab
+│       │       ├── reminders/         # 提醒（已隐藏，代码保留）
 │       │       │   ├── reminders_page.dart
 │       │       │   ├── reminder_detail_page.dart
 │       │       │   └── reminder_form_page.dart
-│       │       └── settings/          # 设置
+│       │       └── settings/          # 设置（底栏 Tab）
 │       │           ├── settings_page.dart         # 主设置（导航入口 + 开关）
 │       │           ├── ai_config_page.dart        # AI API 配置 + 语音输入设置
 │       │           ├── period_config_page.dart    # 节次时间配置
@@ -72,14 +72,19 @@ asscl/
 │       ├── android/
 │       │   └── app/src/main/
 │       │       ├── kotlin/.../
-│       │       │   ├── NextClassWidgetProvider.kt      # 下节课微件
+│       │       │   ├── NextClassWidgetProvider.kt      # 下节课微件（实时计算）
 │       │       │   └── TodayScheduleWidgetProvider.kt  # 周课表微件
-│       │       └── res/layout/
-│       │           ├── widget_next_class.xml
-│       │           ├── widget_today_schedule.xml
-│       │           ├── widget_period_course.xml       # 课程起始格
-│       │           ├── widget_period_course_cont.xml  # 课程延续格（无间隙）
-│       │           └── widget_period_empty.xml        # 空格
+│       │       └── res/
+│       │           ├── layout/
+│       │           │   ├── widget_next_class.xml
+│       │           │   ├── widget_today_schedule.xml
+│       │           │   ├── widget_period_course.xml       # 课程起始格
+│       │           │   ├── widget_period_course_cont.xml  # 课程延续格（无间隙）
+│       │           │   └── widget_period_empty.xml        # 空格
+│       │           ├── drawable/widget_background.xml     # 亮色背景
+│       │           ├── drawable-night/widget_background.xml # 暗色背景
+│       │           ├── values/colors.xml                  # 微件亮色文字颜色
+│       │           └── values-night/colors.xml            # 微件暗色文字颜色
 │       └── test/
 │           ├── widget_test.dart
 │           └── services/
@@ -127,7 +132,7 @@ asscl/
 
 - **状态管理**: flutter_riverpod
 - **数据库**: drift (SQLite)，schema v5
-- **路由**: go_router (StatefulShellRoute，4 Tab)
+- **路由**: go_router (StatefulShellRoute，3 Tab)
 - **通知**: flutter_local_notifications
 - **桌面组件**: home_widget (Android AppWidget)
 - **AI 渲染**: gpt_markdown (Markdown + KaTeX)
@@ -144,8 +149,7 @@ asscl/
 |-----|------|------|
 | 课程表 | `/schedule` | SchedulePage |
 | AI 助手 | `/agent` | AiImportPage |
-| 任务 | `/tasks` | TasksPage |
-| 提醒 | `/reminders` | RemindersPage |
+| 设置 | `/settings` | SettingsPage |
 
 ## AI Agent 工具
 
@@ -234,7 +238,8 @@ cd apps/mobile && flutter analyze
 GitHub Actions 自动运行：
 - **Analyze** — 四个包分别静态分析
 - **Test** — 四个包分别单元测试
-- **Build** — 编译 debug APK 并上传 artifact
+- **Build** — 编译 release APK（自增构建号）并上传 artifact
+- **Release** — 推送 tag 时自动创建 GitHub Release 并附带 APK
 
 ## 相关文档
 
